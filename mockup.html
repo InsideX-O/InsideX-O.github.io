@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 125168)
-Total output lines: 5625
-
 <!doctype html>
 <html lang="ru">
 <head>
@@ -2537,7 +2534,201 @@ function tmEditor(){
   var msgs = bind(el("textarea",{rows:"4",placeholder:"Одна строка = одно сообщение в чате (до "+tmState.limits.messages+"). Что отправлять, выбирается ниже: все строки подряд или по одной за раз. Например:\nПодписывайтесь на канал!\nНовый ролик: ${youtube_latest}"}),"messages");
   msgs.value = f.messages; msgs.style.width = "100%";
   var num = function(key,min,max){ return bind(el("input",{type:"number",min:String(min),max:String(max),value:String(f[key])}),key); };
-  var live = el("input",{type:"checkbox"}); live.checked = !!f.only_live; live.addEventListener("change…5168 tokens truncated…1 9 9-12h-6z" fill="currentColor"/>'}
+  var live = el("input",{type:"checkbox"}); live.checked = !!f.only_live; live.addEventListener("change",function(){ f.only_live = live.checked; });
+  var out = el("div",{"class":"note good"});
+  out.style.display = tmPrev ? "" : "none";
+  if(tmPrev){ out.textContent = "Так будут выглядеть:\n"+tmPrev.join("\n"); out.style.whiteSpace = "pre-line"; }
+  var vars = "Переменные: ${channel}, ${uptime}, ${game}, ${title}, ${random:1-10}, ${pick:а|б|в}, ${youtube_latest} (название и ссылка последнего ролика), ${youtube_title}, ${youtube_url}. YouTube подключается во вкладке «Правила».";
+  return el("div",{"class":"cmd"},[
+    el("div",{"class":"name"},[el("span",{text:f.id?"Изменить таймер":"Новый таймер"}),helpIcon(vars)]),
+    tmField("Название",name), msgs,
+    tmField("Что отправлять",sel("mode",[["all","Все строки подряд (каждая отдельным сообщением)"],["sequence","По одной строке за раз, по очереди"],["random","По одной случайной строке за раз"]])),
+    tmField("Не чаще, чем раз в (минут)",num("interval_min",1,1440)),
+    tmField("Сообщений в чате с прошлого раза",num("min_messages",0,500)),
+    tmField("Разных людей писали за последние",sel("window_min",[[10,"10 минут"],[30,"30 минут"],[60,"60 минут"]])),
+    tmField("…не меньше человек",num("min_chatters",0,100)),
+    tmField("Приоритет (0–10, выше идёт раньше)",num("priority",0,10)),
+    el("div",{"class":"tools"},[switchEl("Только когда идёт стрим",!!f.only_live,function(v){ f.only_live = v; })]),
+    out,
+    el("div",{"class":"form"},[
+      el("button",{"class":"ghost",text:"Проверить текст",onclick:async function(){
+        try{ var d = await api("/api/timers/preview",{messages:f.messages}); tmPrev = d.ok?d.messages:[d.error||"Ошибка"]; }catch(e){ tmPrev = [e.message]; }
+        render(meName);
+      }}),
+      el("button",{text:"Сохранить",onclick:async function(){
+        var body = {id:f.id,name:f.name,messages:f.messages,mode:f.mode,interval_min:Number(f.interval_min),min_messages:Number(f.min_messages),min_chatters:Number(f.min_chatters),window_min:Number(f.window_min),only_live:!!f.only_live,priority:Number(f.priority),enabled:f.enabled};
+        if(await tmCall("/api/timers/save",body,"Таймер сохранён")){ tmEdit=null; tmForm=null; tmPrev=null; render(meName); }
+      }}),
+      el("button",{"class":"ghost",text:"Отмена",onclick:function(){ tmEdit=null; tmForm=null; tmPrev=null; render(meName); }})])
+  ]);
+}
+function tmLastText(t){
+  if(!t.last_fired_at) return "ещё не срабатывал";
+  return "последний раз: "+ago(t.last_fired_at);
+}
+function timersCard(){
+  tmEnsure();
+  var card = el("div",{"class":"card"},[el("div",{"class":"name",text:"Таймеры"}),
+    el("div",{"class":"ex",text:"Таймер сам пишет в чат: реклама, ссылки, напоминания, новый ролик с YouTube. Он срабатывает не по часам, а когда в чате есть жизнь: прошёл интервал, написано достаточно сообщений и недавно писало достаточно разных людей. Поэтому в пустом чате таймеры молчат. Если готовы несколько таймеров, идёт один (с большим приоритетом и самый давний), а между сообщениями таймеров действует общая пауза и нужно, чтобы зрители успели пообщаться: настройка во вкладке «Правила»."})]);
+  card.appendChild(chatReadingNote());
+  if(!tmState){ card.appendChild(el("div",{"class":"desc",text:"Загружаю…"})); return card; }
+  tmState.timers.forEach(function(t){
+    function mt(ic,txt,tip,on){ var g = el("span",{"class":"tag mt"+(on?" on":""),title:tip},[uiIcon(ic,13),el("span",{text:String(txt)})]); return g; }
+    var chips = el("span",{"class":"tmchips"},[mt("clock",t.interval_min+" мин","Не чаще, чем раз в "+t.interval_min+" мин",true),mt("mail","≥ "+t.min_messages,"Не меньше "+t.min_messages+" сообщений в чате"),mt("person","≥ "+t.min_chatters,"Не меньше "+t.min_chatters+" человек пишут в чате")]);
+    if(t.priority>0) chips.appendChild(mt("flag",t.priority,"Приоритет "+t.priority));
+    var info = el("div",{"class":"tmmain"},[el("div",{"class":"tmhead"},[el("strong",{"class":"tname",text:t.name}),chips]),
+      el("div",{"class":"desc",text:(t.messages.length>1?t.messages.length+" строк ("+(t.mode==="all"?"все подряд":t.mode==="random"?"случайная одна":"по одной по очереди")+"): ":"")+t.messages[0].slice(0,100)+(t.messages[0].length>100?"…":"")}),
+      el("div",{"class":"desc",text:tmLastText(t)+" · сработал "+t.fired_count+" раз"+(t.only_live?" · только в эфире":"")})]);
+    function ib(ic,tip,fn){ return el("button",{"class":"ghost icon small","aria-label":tip,title:tip,onclick:fn},[uiIcon(ic,16)]); }
+    var acts = el("div",{"class":"tmside"},[
+      switchOnly(t.enabled,function(v){ tmCall("/api/timers/toggle",{id:t.id,enabled:v}); },"Таймер «"+t.name+"» включён"),
+      ib("edit","Изменить",function(){ tmEdit=t.id; tmForm=tmFormFor(t); tmPrev=null; render(meName); }),
+      ib("send","Отправить в чат сейчас",async function(){
+        if(!await uiConfirm("Отправить сообщение таймера в чат прямо сейчас?")) return;
+        show(""); try{ var d = await api("/api/timers/test",{id:t.id}); show(d.ok?"Отправлено":(d.error||"Ошибка"),d.ok?"good":"err"); }catch(e){ show(e.message,"err"); }
+      }),
+      ib("commands","Перенести в свои команды",async function(){
+        if(!await uiConfirm("Перенести таймер «"+t.name+"» в свои команды? Таймер будет удалён, строки склеятся в ответ команды.")) return;
+        show(""); try{ var d = await api("/api/timers/to-command",{id:t.id}); if(!d.ok){ show(d.error||"Ошибка","err"); return; } chatState=null; await loadTimers(); render(meName); show("Перенесено в команды: !"+d.command+(d.warn?". "+d.warn:""),d.warn?"err":"good"); }catch(e){ show(e.message,"err"); }
+      }),
+      ib("trash","Удалить",async function(){ if(await uiConfirm("Удалить таймер «"+t.name+"»?")) tmCall("/api/timers/delete",{id:t.id},"Таймер удалён"); })]);
+    card.appendChild(el("div",{"class":"tmrow"},[info,acts]));
+    if(tmEdit===t.id && tmForm) card.appendChild(tmEditor());
+  });
+  if(!tmState.timers.length) card.appendChild(el("div",{"class":"desc",text:"Таймеров пока нет."}));
+  if(tmEdit==="new" && tmForm) card.appendChild(tmEditor());
+  else card.appendChild(el("div",{"class":"form"},[el("button",{"class":"ghost",text:"+ Новый таймер",onclick:function(){ tmEdit="new"; tmForm=tmFormFor(null); tmPrev=null; render(meName); }}),el("span",{"class":"tag",text:tmState.timers.length+" из "+tmState.limits.max})]));
+  return card;
+}
+function timerRulesCard(){
+  tmEnsure();
+  var card = el("div",{"class":"card"},[el("div",{"class":"name",text:"Общие правила таймеров"}),
+    el("div",{"class":"ex",text:"Эти правила действуют на все таймеры канала сразу и защищают чат от засорения ботом. «Пауза между таймерами» это минимум минут между любыми двумя сообщениями таймеров. «Сообщений зрителей после бота» сколько сообщений должны написать люди после последнего сообщения таймера, прежде чем бот скажет снова."})]);
+  if(!tmState){ card.appendChild(el("div",{"class":"desc",text:"Загружаю…"})); return card; }
+  var r = tmState.rules, f = {enabled:r.enabled,gap_min:r.gap_min,min_user_between:r.min_user_between};
+  var gap = el("input",{type:"number",min:"1",max:"120",value:String(f.gap_min)}); gap.addEventListener("input",function(){ f.gap_min = gap.value; });
+  var btw = el("input",{type:"number",min:"0",max:"200",value:String(f.min_user_between)}); btw.addEventListener("input",function(){ f.min_user_between = btw.value; });
+  card.appendChild(el("div",{"class":"tools"},[switchEl("Таймеры включены",f.enabled,function(v){ f.enabled = v; tmCall("/api/timers/rules",{enabled:f.enabled,gap_min:Number(gap.value),min_user_between:Number(btw.value)},"Сохранено"); })]));
+  card.appendChild(el("div",{"class":"fldgrid"},[el("div",{"class":"fld"},[el("span",{text:"Пауза, минут"}),gap]),el("div",{"class":"fld"},[el("span",{text:"Сообщений после бота"}),btw])]));
+  card.appendChild(el("div",{"class":"form"},[el("button",{text:"Сохранить правила",onclick:function(){ tmCall("/api/timers/rules",{enabled:f.enabled,gap_min:Number(gap.value),min_user_between:Number(btw.value)},"Правила сохранены"); }})]));
+
+  var yt = el("div",{"class":"card"},[el("div",{"class":"name",text:"YouTube для таймеров"}),
+    el("div",{"class":"ex",text:"Подключите канал YouTube, и в сообщениях таймеров заработают переменные ${youtube_latest} (название и ссылка последнего ролика), ${youtube_title} и ${youtube_url}. Ролик берётся автоматически, ключи не нужны. Вставьте ссылку на канал, @имя или id канала (UC…)."})]);
+  if(r.youtube) yt.appendChild(el("div",{"class":"status ok",text:"Подключён канал: "+(r.youtube.name||r.youtube.channel_id)}));
+  var inp = el("input",{type:"text",placeholder:"https://www.youtube.com/@имя или id канала"});
+  yt.appendChild(el("div",{"class":"form"},[inp,
+    el("button",{text:r.youtube?"Заменить":"Подключить",onclick:async function(){
+      show(""); try{ var d = await api("/api/timers/youtube",{url:inp.value}); if(!d.ok){ show(d.error||"Ошибка","err"); return; } await loadTimers(); render(meName); show("Подключено. Последний ролик: "+d.latest.title,"good"); }catch(e){ show(e.message,"err"); }
+    }}),
+    r.youtube?el("button",{"class":"ghost",text:"Отключить",onclick:function(){ tmCall("/api/timers/youtube",{url:""},"Отключено"); }}):el("span")]));
+  var wrap = el("div"); wrap.appendChild(card); wrap.appendChild(yt);
+  return wrap;
+}
+// ---------- меню аккаунта, страницы «Аккаунт», «Профили», «Журнал» ----------
+var menuOpen = false, acctSub = "login";
+function backBar(title){
+  return el("div",{"class":"backbar"},[el("button",{"class":"ghost small",text:"← Назад",onclick:function(){ setTab("overview"); }}),el("span",{"class":"bt",text:title})]);
+}
+// Шапка по макету: справка, смена светлой и тёмной темы, кнопка аккаунта с меню (Профили, Настройки, Помощь, Журнал, Аккаунт и безопасность, Выйти)
+function menuButton(name){
+  var f = document.createDocumentFragment();
+  f.appendChild(el("button",{"class":"icon","aria-label":"Помощь",title:"Помощь",onclick:function(){ menuOpen=false; setTab("help"); }},[uiIcon("help",18)]));
+  f.appendChild(el("button",{"class":"icon","aria-label":THEME.mode==="dark"?"Включить светлую тему":"Включить тёмную тему",title:"Сменить тему",onclick:function(){ THEME.mode = THEME.mode==="dark"?"light":"dark"; saveTheme(); render(meName); }},[uiIcon(THEME.mode==="dark"?"sun":"moon",18)]));
+  f.appendChild(el("button",{"class":"user","aria-label":"Меню аккаунта","aria-haspopup":"menu","aria-expanded":menuOpen?"true":"false",onclick:function(e){ e.stopPropagation(); menuOpen=!menuOpen; render(meName); }},[avatar(meAvatar,name,false),el("span",{"class":"un",text:name||"Аккаунт"}),uiIcon("chevron",14)]));
+  if(menuOpen){
+    var menu = el("div",{"class":"usermenu",role:"menu",onclick:function(e){ e.stopPropagation(); }});
+    var item = function(icn,label,go){ menu.appendChild(el("button",{role:"menuitem",onclick:function(e){ e.stopPropagation(); menuOpen=false; go(); }},[uiIcon(icn,16),el("span",{text:label})])); };
+    item("profiles","Профили",function(){ setTab("profilesmgr"); });
+    item("settings","Настройки",function(){ setTab("settings"); });
+    item("help","Помощь",function(){ setTab("help"); });
+    item("journal","Журнал",function(){ setTab("log"); });
+    item("shield","Аккаунт и безопасность",function(){ acctSub="login"; setTab("account"); });
+    menu.appendChild(el("hr"));
+    item("logout","Выйти",async function(){
+      try{ await api("/api/logout",{}); }catch(e){}
+      setToken(null); lgState=null; conns=[]; profilesAll=null; sessionsState=null; chState=null; agentsState=null; ovState=null; chatState=null; tmState=null; cnState=null; mdState=null; render();
+    });
+    f.appendChild(menu);
+  }
+  return f;
+}
+// Заголовок экрана по макету: надпись-эйбрау, название, пояснение и главное действие справа
+function pill(text,kind){ return el("span",{"class":"pill"+(kind?" "+kind:""),text:text}); }
+function hello(eyebrow,title,sub,action){
+  var h = el("div",{"class":"hello"},[el("div",{},[el("div",{"class":"eyebrow",text:eyebrow}),el("h1",{text:title}),el("p",{text:sub})])]);
+  if(action) h.appendChild(action);
+  return h;
+}
+function cardHead(title,pillNode){ var h = el("div",{"class":"cardhead"},[el("strong",{text:title})]); if(pillNode) h.appendChild(pillNode); return h; }
+// Строка подключения: значок, название, пояснение, статус справа
+function platformRow(icn,title,sub,right){
+  return el("div",{"class":"platform"},[el("div",{"class":"picon"},[uiIcon(icn,18)]),el("div",{},[el("div",{"class":"pname",text:title}),el("div",{"class":"psub",text:sub})]),right||el("span")]);
+}
+function sumTile(v,l){ return el("div",{"class":"tile"},[el("div",{"class":"tv",text:String(v)}),el("div",{"class":"tl",text:l})]); }
+function fmtDay(iso){ return iso?new Date(iso).toLocaleDateString():"—"; }
+function accountSummaryCard(){
+  var acc = account||{};
+  var profs = chState?chState.channels.filter(function(c){return !c.archived;}).length:"…";
+  var devs = sessionsState&&sessionsState.sessions?sessionsState.sessions.length:"…";
+  return el("div",{"class":"card"},[el("div",{"class":"name",text:"Сводка аккаунта"}),
+    el("div",{"class":"tiles"},[sumTile(profs,"Профилей"),sumTile(conns.length,"Подключений в активном профиле"),sumTile(devs,"Устройств с входом"),sumTile(fmtDay(acc.created_at),"Аккаунт создан"),sumTile(fmtDay(acc.last_login_at),"Последний вход")])]);
+}
+function renderAccountPage(app){
+  app.appendChild(hello("АККАУНТ","Аккаунт и безопасность","Способы входа, защита и активные устройства."));
+  app.appendChild(el("div",{"class":"tabs scroll"},[["login","Способы входа"],["security","Безопасность"]].map(function(t){
+    return el("button",{"class":"tab"+(acctSub===t[0]?" on":""),text:t[1],onclick:function(){ acctSub=t[0]; render(meName); }});
+  })));
+  if(acctSub==="login"){
+    app.appendChild(accountSummaryCard());
+    app.appendChild(accountCard());
+  }else{
+    app.appendChild(sessionsCard());
+    app.appendChild(securityCard());
+    app.appendChild(el("div",{"class":"card"},[deleteBlock()]));
+  }
+}
+function renderProfilesMgr(app){
+  app.appendChild(hello("КАНАЛЫ И ПОДКЛЮЧЕНИЯ","Профили","У каждого канала свои настройки и бот.",el("button",{"class":"btn",text:"+ Новый профиль",onclick:function(){
+    var st = chState; if(!st) return;
+    var n = st.channels.filter(function(c){ return !c.archived; }).length;
+    if(n>=st.limit){ show("Больше профилей добавить нельзя: предел "+st.limit,"err"); return; }
+    pmSel = "new"; render(meName);
+  }})));
+  renderProfileTabs(app);
+}
+// ---------- чат: вся история и онлайн ----------
+var cx = {group:"all", period:"", day:"", stream:"all", q:"", bots:true, groups:null, gmap:{}, searchOpen:false}, profSortOpen = false;
+// Группы чата «день + стрим»: день без стрима это одна группа, у стрима внутри дня свой номер (бывает два-три стрима в день). Та же разбивка у чата, речи и истории зрителя.
+async function loadGroups(){
+  try{ var d = await api("/api/chatlog/groups"); cx.groups = d.ok?d.items:[]; }catch(e){ cx.groups = []; }
+  cx.gmap = {}; cx.groups.forEach(function(g){ cx.gmap[g.day+"|"+(g.stream||"none")] = g; });
+}
+function cfDate(day){ var p = String(day||"").split("-"); return p.length===3 ? p[2]+"."+p[1]+"."+p[0] : ""; }
+function cfGroupText(g){
+  var d = cfDate(g.day);
+  if(!g.stream) return d+" · вне стрима";
+  return d+" · стрим "+(g.stream_no||"")+(g.title?" «"+g.title+"»":"")+(g.game?" · "+g.game:"");
+}
+function cfKey(it){ return (it.day || new Date(it.at).toDateString())+"|"+(it.stream||"none"); }
+function cfPad(n){ return String(n).padStart(2,"0"); }
+function cfTime(iso, full){
+  var d = new Date(iso), t = cfPad(d.getHours())+":"+cfPad(d.getMinutes())+":"+cfPad(d.getSeconds());
+  return full ? cfPad(d.getDate())+"."+cfPad(d.getMonth()+1)+"."+d.getFullYear()+" "+t : t;
+}
+function cfColor(name){ var h=0; for(var i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))%360; return "hsl("+h+",65%,62%)"; }
+// Значки ролей чата (общие для всех платформ и для будущего виджета): цвет, название и контур; без подписей словами
+var BADGE_ICONS = {
+  broadcaster:{t:"Стример",c:"#e91916",d:'<circle cx="12" cy="12" r="3.2" fill="currentColor"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4M9 9a4 4 0 0 0 0 6M15 9a4 4 0 0 1 0 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'},
+  moderator:{t:"Модератор",c:"#00ad03",d:'<path d="M14 3h7v7L10 21l-3-3-3-3zM3 21l4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'},
+  vip:{t:"VIP",c:"#e005b9",d:'<path d="M12 21 3 9l3-5h12l3 5z" fill="currentColor"/>'},
+  subscriber:{t:"Подписчик",c:"#9146ff",d:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" fill="currentColor"/>'},
+  founder:{t:"Основатель",c:"#f5b301",d:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" fill="currentColor"/>'},
+  "sub-gifter":{t:"Дарит подписки",c:"#ff7a00",d:'<path d="M4 9h16v4H4zM6 13v7h12v-7M12 9v11M12 9c-3 0-4-4-1.5-4S12 9 12 9zm0 0c3 0 4-4 1.5-4S12 9 12 9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'},
+  bits:{t:"Битсы",c:"#a970ff",d:'<path d="M12 3 20 8v8l-8 5-8-5V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'},
+  partner:{t:"Партнёр",c:"#9146ff",d:'<circle cx="12" cy="12" r="9" fill="currentColor"/><path d="m7.5 12.5 3 3 6-6.5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'},
+  staff:{t:"Сотрудник Twitch",c:"#6c6c75",d:'<path d="M14 4a5 5 0 0 0-4 7L3 18l3 3 7-7a5 5 0 0 0 7-4l-3 2-3-3 2-3z" fill="currentColor"/>'},
+  premium:{t:"Prime",c:"#2f9bff",d:'<path d="M4 9v10h16V9M3 9l4-4 5 4 5-4 4 4M3 19h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'},
+  turbo:{t:"Turbo",c:"#9146ff",d:'<path d="M13 2 5 13h6l-1 9 9-12h-6z" fill="currentColor"/>'}
 };
 var PLAT_BRAND = {twitch:"Twitch",youtube:"YouTube",kick:"Kick",vk:"VK",discord:"Discord"};
 function badgeIcon(id){
@@ -5431,4 +5622,3 @@ async function appHandoffMaybe(){
 </script>
 </body>
 </html>
-
