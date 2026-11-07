@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>XBot: тестовый стенд</title></head>
+<body style="background:#100a10;color:#f7f3f6;font:15px system-ui;padding:24px">Загружаю стенд…
+<script>
+// Тестовый стенд: настоящая панель сайта (/index.html), но без входа и без сервера: все ответы подставные (вымышленные и часть реальных данных канала). Ничего не сохраняется и не отправляется.
+fetch("/mockup.html",{cache:"no-cache"}).then(function(r){ return r.text(); }).then(function(html){
+  html = html.replace("</body>",'<script src="/stand/boot.js"><\/script></body>');
+  document.open(); document.write(html); document.close();
+});
+</script></body></html>
