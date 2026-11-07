@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Чат для OBS</title>
+<style>
+/* Виджет чата для OBS: «Источник → Браузер», ссылка с ключом канала. Фон прозрачный; вид задаётся настройками в панели (меняются на лету). */
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;overflow:hidden}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff}
+body.preview{background:repeating-conic-gradient(#2a2a33 0 25%,#23232b 0 50%) 0 0/24px 24px}
+#persp{position:absolute;inset:0;display:flex;align-items:flex-end;padding:12px}
+#chat{display:flex;flex-direction:column;justify-content:flex-end;width:100%;max-height:100%;gap:var(--gap,8px);will-change:transform}
+.m{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 .35em;max-width:100%;width:fit-content;padding:var(--pad,10px) calc(var(--pad,10px) * 1.4);border-radius:var(--rad,12px);background:var(--bg,rgba(11,11,18,.55));color:var(--fg,#fff);font-size:var(--fs,22px);font-weight:var(--fw,600);line-height:1.3;box-shadow:0 4px 18px rgba(0,0,0,var(--sh,.4));overflow-wrap:anywhere;animation:var(--in,none) var(--ms,.4s) cubic-bezier(.22,.9,.3,1) both}
+.m.out{animation:var(--out,none) var(--ms,.4s) ease both}
+.m .t{opacity:.6;font-size:.7em;font-variant-numeric:tabular-nums}
+.m .i{display:inline-flex;align-self:center;line-height:0}
+.m .n{font-weight:800}
+.m.bot .n{opacity:.85}
+.right #chat{align-items:flex-end}.right .m{text-align:right}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@keyframes fade-out{from{opacity:1}to{opacity:0}}
+@keyframes slide-left-in{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:none}}
+@keyframes slide-left-out{from{opacity:1;transform:none}to{opacity:0;transform:translateX(-60px)}}
+@keyframes slide-right-in{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:none}}
+@keyframes slide-right-out{from{opacity:1;transform:none}to{opacity:0;transform:translateX(60px)}}
+@keyframes slide-up-in{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+@keyframes slide-up-out{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-28px)}}
+@keyframes pop-in{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+@keyframes pop-out{from{opacity:1;transform:none}to{opacity:0;transform:scale(.6)}}
+</style>
+<style id="custom"></style>
+</head>
+<body>
+<div id="persp"><div id="chat"></div></div>
+<script src="config.js"></script>
+<script>
+(function(){
+  var BADGES = {
+  broadcaster:{t:"Стример",c:"#e91916",d:'<circle cx="12" cy="12" r="3.2" fill="currentColor"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4M9 9a4 4 0 0 0 0 6M15 9a4 4 0 0 1 0 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'},
+  moderator:{t:"Модератор",c:"#00ad03",d:'<path d="M14 3h7v7L10 21l-3-3-3-3zM3 21l4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'},
+  vip:{t:"VIP",c:"#e005b9",d:'<path d="M12 21 3 9l3-5h12l3 5z" fill="currentColor"/>'},
+  subscriber:{t:"Подписчик",c:"#9146ff",d:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" fill="currentColor"/>'},
+  founder:{t:"Основатель",c:"#f5b301",d:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" fill="currentColor"/>'},
+  "sub-gifter":{t:"Дарит подписки",c:"#ff7a00",d:'<path d="M4 9h16v4H4zM6 13v7h12v-7M12 9v11M12 9c-3 0-4-4-1.5-4S12 9 12 9zm0 0c3 0 4-4 1.5-4S12 9 12 9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'},
+  bits:{t:"Битсы",c:"#a970ff",d:'<path d="M12 3 20 8v8l-8 5-8-5V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'},
+  partner:{t:"Партнёр",c:"#9146ff",d:'<circle cx="12" cy="12" r="9" fill="currentColor"/><path d="m7.5 12.5 3 3 6-6.5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'},
+  staff:{t:"Сотрудник Twitch",c:"#6c6c75",d:'<path d="M14 4a5 5 0 0 0-4 7L3 18l3 3 7-7a5 5 0 0 0 7-4l-3 2-3-3 2-3z" fill="currentColor"/>'},
+  premium:{t:"Prime",c:"#2f9bff",d:'<path d="M4 9v10h16V9M3 9l4-4 5 4 5-4 4 4M3 19h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'},
+  turbo:{t:"Turbo",c:"#9146ff",d:'<path d="M13 2 5 13h6l-1 9 9-12h-6z" fill="currentColor"/>'}
+};
+  var PLAT = {"twitch": {"c": "#9146ff", "d": "M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"}, "youtube": {"c": "#ff0033", "d": "M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"}, "kick": {"c": "#53fc18", "d": "M1.333 0h8v5.333H12V2.667h2.667V0h8v8H20v2.667h-2.667v2.666H20V16h2.667v8h-8v-2.667H12v-2.666H9.333V24h-8Z"}, "vk": {"c": "#0077ff", "d": "M15.684 0H8.316C1.592 0 0 1.592 0 8.316v7.368C0 22.408 1.592 24 8.316 24h7.368C22.408 24 24 22.408 24 15.684V8.316C24 1.592 22.391 0 15.684 0zm3.692 17.123h-1.744c-.66 0-.864-.525-2.05-1.727-1.033-1-1.49-1.135-1.744-1.135-.356 0-.458.102-.458.593v1.575c0 .424-.135.678-1.253.678-1.846 0-3.896-1.118-5.335-3.202C4.624 10.857 4.03 8.57 4.03 8.096c0-.254.102-.491.593-.491h1.744c.44 0 .61.203.78.677.863 2.49 2.303 4.675 2.896 4.675.22 0 .322-.102.322-.66V9.721c-.068-1.186-.695-1.287-.695-1.71 0-.204.17-.407.44-.407h2.744c.373 0 .508.203.508.643v3.473c0 .372.17.508.271.508.22 0 .407-.136.813-.542 1.254-1.406 2.151-3.574 2.151-3.574.119-.254.322-.491.763-.491h1.744c.525 0 .644.27.525.643-.22 1.017-2.354 4.031-2.354 4.031-.186.305-.254.44 0 .78.186.254.796.779 1.203 1.253.745.847 1.32 1.558 1.473 2.05.17.49-.085.744-.576.744z"}, "discord": {"c": "#5865f2", "d": "M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.4001-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"}};
+  var q = new URLSearchParams(location.search), key = q.get("k") || "", preview = q.get("preview") === "1";
+  if(preview) document.body.classList.add("preview");
+  var chat = document.getElementById("chat"), persp = document.getElementById("persp"), custom = document.getElementById("custom");
+  var liveNow = true, lastMsgAt = Date.now(), cfg = null, lastId = 0, first = true, fontLink = null, fake = 0;
+  var DEF = {platforms:["twitch","youtube","kick","vk","discord"],show_badges:true,show_platform:true,show_time:false,show_bots:true,font:"Inter",font_size:22,weight:600,line_gap:8,text_color:"#ffffff",name_mode:"viewer",accent:"#ff5c8a",bg_color:"#0b0b12",bg_opacity:55,radius:12,padding:10,shadow:40,upper_names:false,align:"left",max_messages:8,hide_after:30,enter:"slide-left",exit:"fade",anim_ms:400,tilt:"none",rx:0,ry:0,rz:0,skew_x:0,skew_y:0,perspective:900,scale:100,origin:"left",custom_css:""};
+
+  function rgba(hex, a){ var n = parseInt(hex.slice(1),16); return "rgba("+((n>>16)&255)+","+((n>>8)&255)+","+(n&255)+","+a+")"; }
+  function hue(s){ var h=0; for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%360; return "hsl("+h+",70%,65%)"; }
+  function svg(d, size, color){ var s = document.createElement("span"); s.className = "i"; s.style.color = color || "inherit"; s.innerHTML = '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" aria-hidden="true">'+d+'</svg>'; return s; }
+
+  function apply(c){
+    cfg = c = Object.assign({}, DEF, c || {});
+    var r = document.documentElement.style;
+    r.setProperty("--fs", c.font_size+"px"); r.setProperty("--fw", c.weight); r.setProperty("--gap", c.line_gap+"px");
+    r.setProperty("--fg", c.text_color); r.setProperty("--bg", rgba(c.bg_color, c.bg_opacity/100));
+    r.setProperty("--rad", c.radius+"px"); r.setProperty("--pad", c.padding+"px"); r.setProperty("--sh", (c.shadow/100)*.8);
+    r.setProperty("--ms", c.anim_ms+"ms");
+    r.setProperty("--in", c.enter==="none"?"none":c.enter+"-in"); r.setProperty("--out", c.exit==="none"?"none":c.exit+"-out");
+    document.body.style.fontFamily = c.font==="system" ? "" : '"'+c.font+'", system-ui, sans-serif';
+    if(c.font!=="system"){
+      var href = "https://fonts.googleapis.com/css2?family="+encodeURIComponent(c.font).replace(/%20/g,"+")+":wght@400;600;800;900&display=swap";
+      if(!fontLink){ fontLink = document.createElement("link"); fontLink.rel = "stylesheet"; document.head.appendChild(fontLink); }
+      if(fontLink.href !== href) fontLink.href = href;
+    }
+    document.body.classList.toggle("right", c.align==="right");
+    var orig = {left:"left bottom",center:"center bottom",right:"right bottom"}[c.origin] || "left bottom";
+    var tr = "";
+    if(c.tilt==="3d") tr = "rotateX("+c.rx+"deg) rotateY("+c.ry+"deg) rotateZ("+c.rz+"deg) scale("+(c.scale/100)+")";
+    else if(c.tilt==="flat") tr = "rotate("+c.rz+"deg) skew("+c.skew_x+"deg,"+c.skew_y+"deg) scale("+(c.scale/100)+")";
+    else if(c.scale!==100) tr = "scale("+(c.scale/100)+")";
+    persp.style.perspective = c.tilt==="3d" ? c.perspective+"px" : "none";
+    chat.style.transformOrigin = orig; chat.style.transform = tr;
+    custom.textContent = c.custom_css || "";
+    // уже показанные сообщения перерисовываются под новые настройки (значки, время)
+    [].slice.call(chat.children).forEach(function(el){ if(el._m && !el._gone) fill(el, el._m); });
+    trim();
+  }
+
+  function fill(el, m){
+    el.textContent = ""; el.className = "m"+(m.bot?" bot":"");
+    var c = cfg;
+    if(c.show_time){ var t = document.createElement("span"); t.className = "t"; var d = new Date(m.at||Date.now()); t.textContent = ("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2); el.appendChild(t); }
+    if(c.show_platform && !m.bot && PLAT[m.platform]) el.appendChild(svg('<path d="'+PLAT[m.platform].d+'" fill="currentColor"/>', Math.round(c.font_size*.8), PLAT[m.platform].c));
+    if(c.show_badges) (m.badges||[]).forEach(function(b){ if(BADGES[b]) el.appendChild(svg(BADGES[b].d, Math.round(c.font_size*.85), BADGES[b].c)); });
+    var n = document.createElement("span"); n.className = "n"; n.textContent = (m.bot?"XBot":m.who)+":";
+    if(c.upper_names) n.style.textTransform = "uppercase";
+    n.style.color = c.name_mode==="accent" ? c.accent : c.name_mode==="white" ? "#fff" : hue(m.login||m.who||"");
+    el.appendChild(n);
+    var tx = document.createElement("span"); tx.textContent = m.text; el.appendChild(tx);
+  }
+
+  function remove(el){
+    if(el._gone) return; el._gone = true; clearTimeout(el._to);
+    if(cfg.exit==="none"){ el.remove(); return; }
+    el.classList.add("out"); setTimeout(function(){ el.remove(); }, cfg.anim_ms);
+  }
+  function trim(){
+    var live = [].slice.call(chat.children).filter(function(e){ return !e._gone; });
+    while(live.length > cfg.max_messages) remove(live.shift());
+  }
+  function add(m){
+    var el = document.createElement("div"); el._m = m; fill(el, m); chat.appendChild(el);
+    if(cfg.hide_after > 0) el._to = setTimeout(function(){ remove(el); }, cfg.hide_after*1000);
+    trim();
+  }
+
+  // ---- настоящий чат ----
+  function poll(){
+    fetch(window.API_URL+"/overlay/chat?k="+encodeURIComponent(key)+"&after="+lastId).then(function(r){ return r.status===404 ? null : r.json(); }).then(function(d){
+      if(!d || !d.ok) return;
+      apply(d.cfg); liveNow = !!d.live;
+      var items = d.items || [];
+      if(first){ // при запуске показываем только свежее, а не всю старую историю
+        var lim = cfg.hide_after>0 ? Date.now()-cfg.hide_after*1000 : 0;
+        items = items.filter(function(m){ return !lim || Date.parse(m.at) >= lim; }).slice(-cfg.max_messages);
+        first = false;
+      }
+      items.forEach(function(m){ if(m.id > lastId) lastId = m.id; add(m); });
+      if(items.length) lastMsgAt = Date.now();
+    }).catch(function(){});
+  }
+
+  // ---- превью в панели: случайные сообщения и настройки из панели без перезагрузки ----
+  var NAMES = ["Nova","PixelFox","DarkLord","мурзик","Катя_Play","Bimbo","Ghost","SuperMax","Лисичка","TwinkleStar"];
+  var TEXTS = ["всем привет!","ахаха это было сильно","ну и катка","гг","а что за игра?","давай ещё раз","PogChamp","сколько уже стримишь?","красиво играешь","лучший стример 🔥","не засыпай)","скинь ссылку на мерч","это просто имба","ого, вот это поворот"];
+  var BS = [[],[],["subscriber"],["moderator"],["vip"],["subscriber","bits"],["founder"],["broadcaster"],["sub-gifter","subscriber"]];
+  function rnd(a){ return a[Math.floor(Math.random()*a.length)]; }
+  function fakeMsg(){
+    var pl = cfg && cfg.platforms.length ? cfg.platforms : ["twitch"];
+    var bot = Math.random() < .08, nm = rnd(NAMES);
+    return {id:++fake, at:new Date().toISOString(), who:nm, login:nm.toLowerCase(), text:bot?"Привет! Я XBot, чем помочь?":rnd(TEXTS), bot:bot, platform:rnd(pl), badges:bot?[]:rnd(BS)};
+  }
+  function loopFake(){
+    var m = fakeMsg();
+    if(cfg.platforms.length && !(m.bot && !cfg.show_bots)) add(m);
+    setTimeout(loopFake, 900 + Math.random()*1800);
+  }
+
+  apply(DEF);
+  if(preview){
+    window.addEventListener("message", function(e){ if(e.data && e.data.xbotChatCfg) apply(e.data.xbotChatCfg); });
+    try{ parent.postMessage({xbotChatReady:true}, "*"); }catch(e){}
+    for(var i=0;i<4;i++) add(fakeMsg());
+    loopFake();
+  } else {
+    if(!key){ chat.textContent = "Нет ключа в ссылке"; return; }
+    // опрос реже, когда чат тихий: 3 с пока пишут (и идёт стрим), 8 с если 90 с тишины, 20 с если стрима нет и тихо
+    (function loop(){
+      poll();
+      var quiet = Date.now() - lastMsgAt;
+      var wait = quiet < 90000 ? 3000 : (liveNow ? 8000 : 20000);
+      setTimeout(loop, wait);
+    })();
+  }
+})();
+</script>
+</body>
+</html>
