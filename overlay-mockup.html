@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Макет плеера для OBS</title>
+<style>
+/* Макет виджета «Сейчас играет»: те же размеры, что в настоящем плеере (overlay.html), но с выбором углов и бегущей строки. Ничего не сохраняется и не отправляется. */
+*{box-sizing:border-box}
+:root{--page:#100a10;--panel:#1a1219;--line:#33242f;--text:#f7f3f6;--muted:#a99aa4;--accent:#ff3d7f}
+html,body{margin:0;background:var(--page);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 48px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}}
+h1{font-size:20px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 14px}
+.stage{background:repeating-conic-gradient(#1b1b22 0% 25%,#15151b 0% 50%) 0 0/24px 24px;border:1px solid var(--line);border-radius:14px;padding:28px;display:flex;align-items:center;justify-content:center;min-height:360px;overflow:auto}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px;align-content:start}
+.panel h3{margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.row{display:grid;gap:6px}.row>label{font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1 1 auto;border:1px solid var(--line);background:#0f0a0e;color:var(--text);border-radius:10px;padding:8px 10px;font:inherit;cursor:pointer;min-height:38px}
+.seg button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 22%,transparent);font-weight:700}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=text]{width:100%;background:#0f0a0e;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;min-height:38px}
+.chk{display:flex;align-items:center;gap:8px;min-height:32px}.chk input{width:18px;height:18px;accent-color:var(--accent)}
+.out{font:12px/1.4 ui-monospace,Consolas,monospace;background:#0f0a0e;border:1px solid var(--line);border-radius:10px;padding:8px 10px;word-break:break-all;color:#d8ccd3}
+.note{color:var(--muted);font-size:12px}
+
+/* ===== сам виджет (единицы cqh/cqw = vh/vw настоящего плеера) ===== */
+.frame{container-type:size;resize:both;overflow:hidden;width:420px;height:110px;min-width:160px;min-height:60px;max-width:100%;position:relative}
+.card{--bgc:18,20,28;--bga:.86;--bdc:0,0,0;--bda:.7;--bw:1.5cqh;--bg:rgba(var(--bgc),var(--bga));--fg:#fff;--muted2:rgba(255,255,255,.7);--track:rgba(255,255,255,.22);--ac:#1db954;--r1:1.8cqh;--r2:1.2cqh;
+  position:absolute;inset:0;display:flex;align-items:center;gap:2.2cqh;padding:1.6cqh;background:var(--bg);color:var(--fg);border-radius:var(--r1);overflow:hidden;border:var(--bw) solid rgba(var(--bdc),var(--bda))}
+.card.light{--bgc:255,255,255;--bdc:255,255,255;--fg:#111;--muted2:rgba(0,0,0,.62);--track:rgba(0,0,0,.14)}
+.card.clear{text-shadow:0 1px 4px rgba(0,0,0,.85)}
+.card.noframe{border-color:transparent}
+.card.square{--r1:0;--r2:0}
+.cover{flex:none;height:100%;aspect-ratio:1;border-radius:var(--r2);background:linear-gradient(135deg,#5b6b7a,#222c36 55%,#8a97a5);display:flex;align-items:center;justify-content:center;font-size:7cqh;color:var(--muted2);overflow:hidden}
+.card.nocover .cover{display:none}
+.txt{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:.6cqh;position:relative}
+.t,.a{white-space:nowrap;overflow:hidden;position:relative;padding:0 1.8cqh}
+.t.fits,.a.fits{text-align:center}
+.t{font-weight:700;font-size:calc(.3 * min(100cqh,100cqw));line-height:1.15}
+.a{color:var(--muted2);font-size:calc(.21 * min(100cqh,100cqw));line-height:1.2}
+.t span,.a span{display:inline-block;will-change:transform;white-space:nowrap}
+.card.fade .t:not(.fits),.card.fade .a:not(.fits){-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 1.8cqh,#000 calc(100% - 1.8cqh),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 1.8cqh,#000 calc(100% - 1.8cqh),transparent 100%)}
+.bar{position:absolute;left:0;right:0;bottom:0;height:.9cqh;background:var(--track)}
+.bar i{display:block;height:100%;width:0;background:var(--ac)}
+.card.nobar .bar{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>Макет плеера для OBS</h1>
+    <p class="sub">Тяните уголок рамки, чтобы менять размер окна. Справа выбираются углы, бегущая строка и оформление. Внизу параметры, которые потом попадут в настоящий плеер.</p>
+    <div class="stage" id="stage">
+      <div class="frame" id="frame">
+        <div class="card square fade" id="card">
+          <div class="cover" id="cover">♪</div>
+          <div class="txt"><div class="t" id="t"><span></span></div><div class="a" id="a"><span></span></div></div>
+          <div class="bar"><i id="fill"></i></div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="margin-top:10px">Бегущая строка запускается только если название не помещается. Короткое название стоит на месте.</p>
+  </div>
+
+  <div class="panel">
+    <h3>Углы</h3>
+    <div class="seg" id="corners"><button data-v="square" class="on">Квадратные</button><button data-v="round">Скруглённые</button></div>
+
+    <h3>Бегущая строка</h3>
+    <div class="seg" id="marq">
+      <button data-v="pingpong" class="on">Туда и обратно</button>
+      <button data-v="loop">По кругу</button>
+      <button data-v="once">Один проход</button>
+      <button data-v="none">Без движения</button>
+    </div>
+    <div class="note" id="marqNote"></div>
+    <div class="chk"><input type="checkbox" id="fade" checked><label for="fade">Мягкие края (текст не обрывается резко у обложки)</label></div>
+    <div class="row"><label>Скорость <b id="spdV"></b></label><input type="range" id="spd" min="20" max="140" step="5" value="50"></div>
+    <div class="row"><label>Пауза на краях <b id="pauseV"></b></label><input type="range" id="pause" min="0" max="4" step="0.25" value="1.5"></div>
+
+    <h3>Оформление</h3>
+    <div class="seg" id="theme"><button data-v="dark" class="on">Тёмная</button><button data-v="light">Светлая</button><button data-v="clear">Прозрачная</button></div>
+    <div class="chk"><input type="checkbox" id="frame_on" checked><label for="frame_on">Рамка по кругу (на тёмной тёмная, на светлой светлая)</label></div>
+    <div class="row"><label>Толщина рамки <b id="bwV"></b></label><input type="range" id="bw" min="0.4" max="4" step="0.1" value="1.5"></div>
+    <div class="row"><label>Прозрачность рамки <b id="bdaV"></b></label><input type="range" id="bda" min="0" max="100" step="5" value="70"></div>
+    <div class="row"><label>Прозрачность фона <b id="bgaV"></b></label><input type="range" id="bga" min="0" max="100" step="5" value="86"></div>
+    <div class="chk"><input type="checkbox" id="cover_on" checked><label for="cover_on">Обложка</label></div>
+    <div class="chk"><input type="checkbox" id="bar_on" checked><label for="bar_on">Полоса времени снизу</label></div>
+    <div class="row"><label>Цвет полосы</label><input type="color" id="ac" value="#1db954" style="width:100%;height:38px;background:#0f0a0e;border:1px solid var(--line);border-radius:10px"></div>
+
+    <h3>Текст</h3>
+    <div class="seg" id="samples"><button data-v="short" class="on">Короткое</button><button data-v="mid">Среднее</button><button data-v="long">Длинное</button></div>
+    <div class="row"><label>Название</label><input type="text" id="title" value="Big Fi Dem"></div>
+    <div class="row"><label>Исполнитель</label><input type="text" id="artist" value="Cesco, Sparkz"></div>
+
+    <h3>Параметры для плеера</h3>
+    <div class="out" id="params"></div>
+  </div>
+</div>
+<script>
+(function(){
+  var $=function(id){ return document.getElementById(id); };
+  var card=$("card"), frame=$("frame"), tEl=$("t"), aEl=$("a"), fill=$("fill");
+  var S={frame:true,bw:1.5,bda:70,bga:86,corners:"square",marq:"pingpong",fade:true,spd:50,pause:1.5,theme:"dark",cover:true,bar:true,ac:"#1db954"};
+  var SAMPLES={short:["Big Fi Dem","Cesco, Sparkz"],mid:["Это название песни средней длины","Исполнитель и ещё один исполнитель"],long:["Очень длинное название песни, которое точно не поместится в окно виджета","Первый исполнитель, второй исполнитель, третий исполнитель, четвёртый"]};
+  var NOTES={pingpong:"Текст плавно уезжает к концу, стоит, и так же плавно возвращается. Всегда движется внутри своего окна.",loop:"Классическая бегущая строка: идёт в одну сторону, после конца сразу появляется с правого края, с разрывом между повторами.",once:"Один раз доезжает до конца, показывает хвост, потом плавно возвращается к началу и ждёт. Спокойнее всего для глаз.",none:"Без движения: если не помещается, обрезается мягким краем."};
+  function seg(id,key){ var box=$(id); box.addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b) return; S[key]=b.getAttribute("data-v"); [].forEach.call(box.children,function(x){ x.classList.toggle("on",x===b); }); apply(); }); }
+  seg("corners","corners"); seg("marq","marq"); seg("theme","theme"); $("theme").addEventListener("click",function(){ var v=S.theme; S.bga=v==="clear"?0:v==="light"?92:86; $("bga").value=S.bga; apply(); });
+  var sm=$("samples"); sm.addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b) return; var v=SAMPLES[b.getAttribute("data-v")]; $("title").value=v[0]; $("artist").value=v[1]; [].forEach.call(sm.children,function(x){ x.classList.toggle("on",x===b); }); apply(); });
+  [["fade","fade"],["cover_on","cover"],["bar_on","bar"],["frame_on","frame"]].forEach(function(p){ $(p[0]).addEventListener("change",function(){ S[p[1]]=$(p[0]).checked; apply(); }); });
+  ["spd","pause","bw","bda","bga"].forEach(function(id){ $(id).addEventListener("input",function(){ S[id]=parseFloat($(id).value); apply(); }); });
+  ["ac","title","artist"].forEach(function(id){ $(id).addEventListener("input",function(){ apply(); }); });
+  new ResizeObserver(function(){ layoutText(); }).observe(frame);
+
+  var styleEl=document.createElement("style"); document.head.appendChild(styleEl);
+  function measure(text,box){ var m=document.createElement("span"); m.style.cssText="position:absolute;visibility:hidden;white-space:nowrap"; m.textContent=text; box.appendChild(m); var w=m.getBoundingClientRect().width; box.removeChild(m); return Math.ceil(w); }
+  function motion(box,span,i,text){
+    var id="m"+i;
+    span.style.animation="none"; span.textContent=text;
+    var cs=getComputedStyle(box), room=box.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
+    var w=measure(text,box), over=w-room;
+    box.classList.toggle("fits",over<=4); // влезает: по центру и без затухания, буквы не прячутся
+    if(over<=4||S.marq==="none") return "";
+    var spd=S.spd, hold=S.pause, css="";
+    if(S.marq==="loop"){
+      var gap=Math.round(room*.25)+24, one=w+gap, dur=one/spd;
+      span.innerHTML=""; var a=document.createElement("span"), g=document.createElement("span"), b=document.createElement("span");
+      a.textContent=text; b.textContent=text; g.style.cssText="display:inline-block;width:"+gap+"px"; span.appendChild(a); span.appendChild(g); span.appendChild(b);
+      css="@keyframes "+id+"{from{transform:translateX(0)}to{transform:translateX(-"+one+"px)}}";
+      span.style.animation=id+" "+dur+"s linear infinite";
+    }else if(S.marq==="pingpong"){
+      var run=(over+8)/spd, total=run*2+hold*2, p1=hold/total*100, p2=(hold+run)/total*100, p3=(hold*2+run)/total*100;
+      css="@keyframes "+id+"{0%,"+p1+"%{transform:translateX(0)}"+p2+"%,"+p3+"%{transform:translateX(-"+(over+8)+"px)}100%{transform:translateX(0)}}";
+      span.style.animation=id+" "+total+"s ease-in-out infinite";
+    }else{
+      var run2=(over+8)/spd, back=Math.min(1.2,run2/3), total2=hold+run2+hold+back+hold;
+      var q1=hold/total2*100, q2=(hold+run2)/total2*100, q3=(hold+run2+hold)/total2*100, q4=(hold+run2+hold+back)/total2*100;
+      css="@keyframes "+id+"{0%,"+q1+"%{transform:translateX(0)}"+q2+"%,"+q3+"%{transform:translateX(-"+(over+8)+"px)}"+q4+"%,100%{transform:translateX(0)}}";
+      span.style.animation=id+" "+total2+"s ease-in-out infinite";
+    }
+    return css;
+  }
+  function layoutText(){
+    styleEl.textContent=motion(tEl,tEl.firstChild,1,$("title").value)+motion(aEl,aEl.firstChild,2,$("artist").value);
+  }
+  function apply(){
+    S.ac=$("ac").value;
+    card.className="card"+(S.corners==="square"?" square":"")+(S.fade?" fade":"")+(S.theme==="light"?" light":S.theme==="clear"?" clear":"")+(S.cover?"":" nocover")+(S.bar?"":" nobar");
+    card.style.setProperty("--ac",S.ac); card.classList.toggle("noframe",!S.frame); card.style.setProperty("--bw",S.bw+"cqh"); card.style.setProperty("--bda",S.bda/100); card.style.setProperty("--bga",S.bga/100);
+    $("bwV").textContent=S.bw.toFixed(1); $("bdaV").textContent=S.bda+"%"; $("bgaV").textContent=S.bga+"%";
+    $("spdV").textContent=S.spd+" px/с"; $("pauseV").textContent=S.pause+" с"; $("marqNote").textContent=NOTES[S.marq];
+    layoutText();
+    $("params").textContent="?round="+(S.corners==="round"?1:0)+"&marq="+S.marq+"&fade="+(S.fade?1:0)+"&ms="+S.spd+"&mp="+S.pause+"&theme="+S.theme+"&cover="+(S.cover?1:0)+"&bar="+(S.bar?1:0)+"&frame="+(S.frame?1:0)+"&bw="+S.bw+"&bd="+S.bda+"&bg="+S.bga+"&accent="+S.ac.replace("#","");
+  }
+  // полоса времени идёт по кругу, как при воспроизведении
+  var t0=Date.now(); setInterval(function(){ fill.style.width=(((Date.now()-t0)/1000%60)/60*100)+"%"; },200);
+  apply();
+})();
+</script>
+</body>
+</html>
