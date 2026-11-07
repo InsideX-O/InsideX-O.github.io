@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<base href="/">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Плеер для OBS</title>
+<style>
+/* Плеер для OBS: «Источник → Браузер», ссылка с ключом канала. Фон прозрачный, размер любой, вёрстка подстраивается. */
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{--bgc:18,20,28;--bga:.86;--bdc:0,0,0;--bda:.7;--bw:1.5vh;--bg:rgba(var(--bgc),var(--bga));--fg:#fff;--muted:rgba(255,255,255,.7);--track:rgba(255,255,255,.22);--accent:#1db954;--r1:0;--r2:0}
+body.round{--r1:1.8vh;--r2:1.2vh}
+body.light{--bgc:255,255,255;--bdc:255,255,255;--bga:.92;--fg:#111;--muted:rgba(0,0,0,.62);--track:rgba(0,0,0,.14)}
+body.clear{--bga:0}
+body.noframe .card{border-color:transparent}
+body.clear .card{text-shadow:0 1px 4px rgba(0,0,0,.85)}
+.card{position:relative;display:flex;align-items:center;gap:2.2vh;width:100vw;height:100vh;padding:1.6vh;background:var(--bg);color:var(--fg);border-radius:var(--r1);border:var(--bw) solid rgba(var(--bdc),var(--bda));overflow:hidden;opacity:0;transform:translateY(8px);transition:opacity var(--spd,.45s) ease,transform var(--spd,.45s) cubic-bezier(.22,.9,.3,1)}
+.card.on{opacity:1;transform:none}
+/* как плеер появляется и уходит: тот же ход в обратную сторону при скрытии */
+body[data-anim=left] .card{transform:translateX(-115%)}
+body[data-anim=right] .card{transform:translateX(115%)}
+body[data-anim=top] .card{transform:translateY(-130%)}
+body[data-anim=bottom] .card{transform:translateY(130%)}
+body[data-anim=zoom] .card{transform:scale(.6)}
+body[data-anim=left] .card,body[data-anim=right] .card,body[data-anim=top] .card,body[data-anim=bottom] .card{opacity:1}
+body[data-anim] .card.on{transform:none;opacity:1}
+body[data-anim=none] .card{transition:none;transform:none}
+.cover{flex:none;height:100%;aspect-ratio:1;border-radius:var(--r2);background:var(--track);display:flex;align-items:center;justify-content:center;font-size:7vh;color:var(--muted);overflow:hidden}
+.cover img{width:100%;height:100%;object-fit:cover;display:block}
+.txt{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:.6vh}
+.t,.a{white-space:nowrap;overflow:hidden;padding:0 1.8vh}
+.t.fits,.a.fits{text-align:center}
+.t span,.a span{display:inline-block;white-space:nowrap;will-change:transform}
+body.fade .t:not(.fits),body.fade .a:not(.fits){-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 1.8vh,#000 calc(100% - 1.8vh),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 1.8vh,#000 calc(100% - 1.8vh),transparent 100%)}
+.t{font-weight:700;font-size:calc(.3 * min(100vh, 100vw));line-height:1.15}
+.a{color:var(--muted);font-size:calc(.21 * min(100vh, 100vw));line-height:1.2}
+.bar{position:absolute;left:0;right:0;bottom:0;height:.9vh;background:var(--track)}
+.bar i{display:block;height:100%;width:0;background:var(--accent)}
+body.nobar .bar{display:none}
+body.nocover .cover{display:none}
+.msg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--muted);font-size:4vh;text-align:center;padding:2vh}
+body.preview .msg.show{display:flex}
+/* узкое окно (почти квадрат или вертикаль): обложка сверху */
+@media (max-aspect-ratio: 5/4){
+  .card{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:1.4vw;padding:2vw}
+  .cover{height:auto;width:100%;font-size:30vw}
+  .txt{flex:none;gap:.4vw}
+  .t{font-size:8vw}
+  .a{font-size:6vw}
+  .bar{height:1.6vw}
+}
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div class="cover" id="cover">♪</div>
+  <div class="txt"><div class="t" id="t"><span></span></div><div class="a" id="a"><span></span></div></div>
+  <div class="bar"><i id="fill"></i></div>
+</div>
+<div class="msg" id="msg"></div>
+<script>window.API_URL="";
+// Пример играющей песни для предпросмотра на стенде: короткое название, потом длинное (чтобы была видна бегущая строка)
+var __tr=[{t:"Big Fi Dem",a:"Cesco, Sparkz",d:200000},{t:"Очень длинное название песни, которое точно не поместится в окно виджета",a:"Первый исполнитель, второй исполнитель, третий исполнитель",d:240000}], __i=0, __t0=Date.now();
+var __cov="data:image/svg+xml;utf8,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b6b7a"/><stop offset=".55" stop-color="#222c36"/><stop offset="1" stop-color="#8a97a5"/></linearGradient></defs><rect width="300" height="300" fill="url(#g)"/></svg>');
+setInterval(function(){ __i=(__i+1)%__tr.length; __t0=Date.now(); },16000);
+window.fetch=function(){ var x=__tr[__i]; return Promise.resolve({status:200,json:function(){ return {ok:true,playing:true,title:x.t,artist:x.a,cover:__cov,duration_ms:x.d,progress_ms:Date.now()-__t0,source:"Spotify"}; }}); };
+</script>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search), key=q.get("k")||"";
+  var b=document.body;
+  if(q.get("theme")==="light") b.classList.add("light");
+  if(q.get("theme")==="clear") b.classList.add("clear");
+  if(q.get("bar")==="0") b.classList.add("nobar");
+  if(q.get("cover")==="0") b.classList.add("nocover");
+  if(q.get("preview")==="1") b.classList.add("preview");
+  // оформление: углы (по умолчанию квадратные), рамка, прозрачность, цвет полосы, бегущая строка
+  var P={round:q.get("round")==="1", marq:["pingpong","loop","once","none"].indexOf(q.get("marq"))>=0?q.get("marq"):"pingpong", fade:q.get("fade")!=="0", ms:Math.min(140,Math.max(20,parseFloat(q.get("ms"))||50)), mp:isNaN(parseFloat(q.get("mp")))?1.5:Math.min(4,Math.max(0,parseFloat(q.get("mp"))))};
+  if(P.round) b.classList.add("round");
+  if(P.fade) b.classList.add("fade");
+  if(q.get("frame")==="0") b.classList.add("noframe");
+  var num=function(k){ var v=parseFloat(q.get(k)); return isNaN(v)?null:v; };
+  if(num("bw")!==null) b.style.setProperty("--bw",Math.min(4,Math.max(.4,num("bw")))+"vh");
+  if(num("bd")!==null) b.style.setProperty("--bda",Math.min(100,Math.max(0,num("bd")))/100);
+  if(num("bg")!==null) b.style.setProperty("--bga",Math.min(100,Math.max(0,num("bg")))/100);
+  if(/^[0-9a-fA-F]{6}$/.test(q.get("accent")||"")) b.style.setProperty("--accent","#"+q.get("accent"));
+  var anim=q.get("anim"); if(["left","right","top","bottom","zoom","none"].indexOf(anim)>=0) b.setAttribute("data-anim",anim);
+  var spd=Math.min(2,Math.max(.2,parseFloat(q.get("spd"))||.45)); b.style.setProperty("--spd",spd+"s");
+  // оформление с сервера: правки на сайте доходят сюда без новой ссылки (в режиме предпросмотра работают параметры ссылки)
+  var styleKey="";
+  function applyStyle(st){
+    var k=JSON.stringify(st); if(k===styleKey) return; styleKey=k;
+    b.classList.toggle("light",st.theme==="light"); b.classList.toggle("clear",st.theme==="clear");
+    b.classList.toggle("nobar",!st.bar); b.classList.toggle("nocover",!st.cover);
+    b.classList.toggle("round",!!st.round); b.classList.toggle("fade",!!st.fade); b.classList.toggle("noframe",!st.frame);
+    if(["left","right","top","bottom","zoom","none"].indexOf(st.anim)>=0) b.setAttribute("data-anim",st.anim); else b.removeAttribute("data-anim");
+    spd=parseFloat(st.spd)||.6; b.style.setProperty("--spd",spd+"s");
+    b.style.setProperty("--bw",st.bw+"vh"); b.style.setProperty("--bda",st.bd/100);
+    if(st.bg===null) b.style.removeProperty("--bga"); else b.style.setProperty("--bga",st.bg/100);
+    b.style.setProperty("--accent","#"+st.accent);
+    P.round=!!st.round; P.marq=st.marq; P.fade=!!st.fade; P.ms=st.ms; P.mp=st.mp;
+    [tEl,aEl].forEach(function(bx){ var tx=bx.getAttribute("data-t"); if(tx!==null) layout(bx,bx.firstChild,tx); });
+  }
+  var src=q.get("src")==="spotify"||q.get("src")==="agent"?"&src="+q.get("src"):"";
+  var card=document.getElementById("card"), cover=document.getElementById("cover"), fill=document.getElementById("fill"), msg=document.getElementById("msg");
+  var tEl=document.getElementById("t"), aEl=document.getElementById("a");
+  var cur="", base=0, baseAt=0, dur=0, playing=false;
+
+  function say(text){ msg.textContent=text||""; msg.classList.toggle("show",!!text); }
+  var kf=document.createElement("style"); document.head.appendChild(kf); var kfs={};
+  function measure(text,box){ var m=document.createElement("span"); m.style.cssText="position:absolute;visibility:hidden;white-space:nowrap"; m.textContent=text; box.appendChild(m); var w=m.getBoundingClientRect().width; box.removeChild(m); return Math.ceil(w); }
+  // название и исполнитель: влезает, значит по центру и без затухания; не влезает, значит бегущая строка выбранного вида
+  function setText(box,text){
+    var span=box.firstChild; box.setAttribute("data-t",text); layout(box,span,text);
+  }
+  function layout(box,span,text){
+    var id=box.id; span.style.animation="none"; span.textContent=text;
+    var cs=getComputedStyle(box), room=box.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight), w=measure(text,box), over=w-room;
+    box.classList.toggle("fits",over<=4);
+    if(over<=4||P.marq==="none"){ kfs[id]=""; kf.textContent=(kfs.t||"")+(kfs.a||""); return; }
+    var spd=P.ms, hold=P.mp, css="";
+    if(P.marq==="loop"){
+      var gap=Math.round(room*.25)+24, one=w+gap;
+      span.textContent=""; var a1=document.createElement("span"), g=document.createElement("span"), b1=document.createElement("span");
+      a1.textContent=text; b1.textContent=text; g.style.cssText="display:inline-block;width:"+gap+"px"; span.appendChild(a1); span.appendChild(g); span.appendChild(b1);
+      css="@keyframes k"+id+"{from{transform:translateX(0)}to{transform:translateX(-"+one+"px)}}"; span.style.animation="k"+id+" "+(one/spd)+"s linear infinite";
+    }else if(P.marq==="pingpong"){
+      var run=(over+8)/spd, total=run*2+hold*2, p1=hold/total*100, p2=(hold+run)/total*100, p3=(hold*2+run)/total*100;
+      css="@keyframes k"+id+"{0%,"+p1+"%{transform:translateX(0)}"+p2+"%,"+p3+"%{transform:translateX(-"+(over+8)+"px)}100%{transform:translateX(0)}}"; span.style.animation="k"+id+" "+total+"s ease-in-out infinite";
+    }else{
+      var run2=(over+8)/spd, back=Math.min(1.2,run2/3), total2=hold+run2+hold+back+hold, q1=hold/total2*100, q2=(hold+run2)/total2*100, q3=(hold+run2+hold)/total2*100, q4=(hold+run2+hold+back)/total2*100;
+      css="@keyframes k"+id+"{0%,"+q1+"%{transform:translateX(0)}"+q2+"%,"+q3+"%{transform:translateX(-"+(over+8)+"px)}"+q4+"%,100%{transform:translateX(0)}}"; span.style.animation="k"+id+" "+total2+"s ease-in-out infinite";
+    }
+    kfs[id]=css; kf.textContent=(kfs.t||"")+(kfs.a||"");
+  }
+  window.addEventListener("resize",function(){ [tEl,aEl].forEach(function(bx){ var tx=bx.getAttribute("data-t"); if(tx!==null) layout(bx,bx.firstChild,tx); }); });
+  function show(d){
+    if(d&&d.style&&q.get("preview")!=="1") applyStyle(d.style);
+    if(!d||!d.ok){ card.classList.remove("on"); return; }
+    if(!d.playing){ playing=false; cur=""; card.classList.remove("on"); say("Сейчас ничего не играет"); return; }
+    say("");
+    var id=d.title+"|"+d.artist, changed=id!==cur, first=!cur;
+    if(changed){
+      cur=id;
+      card.classList.remove("on");
+      setTimeout(function(){
+        setText(tEl,d.title||""); setText(aEl,d.artist||"");
+        cover.textContent="♪";
+        if(d.cover){ var img=new Image(); img.alt=""; img.referrerPolicy="no-referrer"; img.onload=function(){ cover.textContent=""; cover.appendChild(img); }; img.src=d.cover; }
+        card.classList.add("on");
+      }, first?0:Math.round(spd*1000));
+    } else card.classList.add("on");
+    playing=true; dur=d.duration_ms||0; base=d.progress_ms||0; baseAt=Date.now();
+  }
+  function tick(){
+    if(!key){ say("Нет ключа в ссылке"); return; }
+    fetch(window.API_URL+"/overlay/now?k="+encodeURIComponent(key)+src).then(function(r){
+      if(r.status===404){ card.classList.remove("on"); say("Ссылка недействительна: создайте новую на сайте"); return null; }
+      return r.json();
+    }).then(function(d){ if(d) show(d); }).catch(function(){});
+  }
+  // полоса времени плавно двигается между опросами
+  setInterval(function(){
+    if(!playing||!dur){ fill.style.width="0"; return; }
+    var p=Math.min(1,(base+(Date.now()-baseAt))/dur); fill.style.width=(p*100)+"%";
+  },250);
+  // опрос: 5 с пока играет музыка, 15 с когда нет, превью в панели ещё реже
+  var idleWait = 15000, prev = q.get("preview")==="1";
+  (function loop(){ if(!document.hidden) tick(); setTimeout(loop, (playing ? 5000 : idleWait) * (prev ? 2 : 1)); })();
+})();
+</script>
+</body>
+</html>
