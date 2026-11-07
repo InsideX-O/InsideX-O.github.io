@@ -4,7 +4,8 @@
 <script>
 // Тестовый стенд: настоящая панель сайта (/index.html), но без входа и без сервера: все ответы подставные (вымышленные и часть реальных данных канала). Ничего не сохраняется и не отправляется.
 fetch("/mockup.html",{cache:"no-cache"}).then(function(r){ return r.text(); }).then(function(html){
-  html = html.replace("</body>",'<script src="/stand/boot.js"><\/script></body>');
+  html = html.replace("</body>",'<script src="/stand/boot.js?v=20261107"><\/script></body>');
   document.open(); document.write(html); document.close();
 });
 </script></body></html>
+
