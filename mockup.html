@@ -805,6 +805,14 @@ select{color-scheme:dark}html[data-mode=light] select{color-scheme:light}
   .counter-head{grid-template-columns:minmax(0,1fr) 11.5em auto}
   .counter-actions{grid-template-columns:auto repeat(2,32px)}
 }
+
+.commands-panel{width:100%;max-width:840px;margin-inline:auto;min-width:0}
+.cmdrow .command-label{display:flex;align-items:center;gap:6px;min-width:0}
+.command-label>code{min-width:0;overflow-wrap:anywhere}
+.command-label>.help{flex:none;margin:0}
+.cmdrow .command-summary{max-height:2.9em;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45}
+.cmdrow .command-summary[hidden],.command-label>.help[hidden]{display:none}
+#tip{max-height:min(60vh,320px);overflow:auto;overscroll-behavior:contain}
 </style>
 </head>
 <body>
@@ -1572,6 +1580,31 @@ function chatEditor(){
       el("button",{"class":"ghost",text:"Отмена",onclick:function(){ chatEdit=null; chatForm=null; chatPrev=""; render(meName); }})])
   ]);
 }
+function commandInfo(names,description,meta){
+  var label = el("div",{"class":"command-label"},[el("code",{text:names})]);
+  var info = el("div",{"class":"grow"},[label]);
+  if(description){
+    var hint = helpIcon(description);
+    hint.hidden = true;
+    label.appendChild(hint);
+    info.appendChild(el("div",{"class":"psub command-summary",text:description}));
+  }
+  if(meta) info.appendChild(el("div",{"class":"psub",text:meta}));
+  return info;
+}
+function fitCommandSummaries(){
+  var summaries = [].slice.call(document.querySelectorAll("#app .command-summary"));
+  summaries.forEach(function(summary){ summary.hidden = false; });
+  var overflow = summaries.map(function(summary){ return summary.scrollHeight > summary.clientHeight; });
+  summaries.forEach(function(summary,index){
+    summary.hidden = overflow[index];
+    var hint = summary.previousElementSibling.querySelector(".help");
+    hint.hidden = !overflow[index];
+    if(hint.hidden && tipFor===hint) hideTip();
+  });
+}
+window.addEventListener("resize",fitCommandSummaries);
+if(document.fonts) document.fonts.ready.then(fitCommandSummaries);
 function chatOwnCard(){
   chatEnsure();
   var card = el("div",{"class":"card"},[el("div",{"class":"name",text:"Свои команды"}),
@@ -1580,9 +1613,8 @@ function chatOwnCard(){
   if(!chatState){ card.appendChild(el("div",{"class":"desc",text:"Загружаю…"})); return card; }
   chatState.custom.forEach(function(c){
     var meta = LEVEL_TITLES[c.level]+" · использовано: "+c.uses+((c.aliases||[]).length?" · также: "+c.aliases.map(function(x){return botPx+x;}).join(" "):"");
-    var info = el("div",{style:"min-width:0"},[el("code",{text:botPx+c.name}),
-      el("div",{"class":"psub command-response",text:c.response||""}),
-      el("div",{"class":"psub",text:meta})]);
+    var description = [c.description,c.response && "Ответ: "+c.response].filter(Boolean).join("\n");
+    var info = commandInfo(botPx+c.name,description,meta);
     var acts = el("div",{"class":"cmdacts"},[
       el("button",{"class":"ghost small",text:"Изменить",onclick:function(){ chatEdit=c.id; chatForm=chatFormFor(c); chatPrev=""; render(meName); }}),
       el("button",{"class":"ghost small",text:"В таймер",onclick:async function(){
@@ -1612,11 +1644,8 @@ function chatBuiltinCard(){
     var save = function(enabled){ return chatCall("/api/chat/commands/builtin",{id:b.id,enabled:enabled,level:level.value,cooldown:Number(cd.value)},"Настройки сохранены"); };
     level.addEventListener("change",function(){ save(b.enabled); });
     cd.addEventListener("change",function(){ save(b.enabled); });
-    var info = el("div",{"class":"grow"},[
-      el("div",{"class":"name"},[el("code",{text:b.names.map(function(n){return botPx+n;}).join("  ")})]),
-      el("div",{"class":"psub command-response",text:"Что делает: "+(b.description||"")}),
-      el("div",{"class":"psub",text:"Использовано: "+(b.uses||0)})
-    ]);
+    var info = commandInfo(b.names.map(function(n){return botPx+n;}).join("  "),
+      b.description ? "Что делает: "+b.description : "", "Использовано: "+(b.uses||0));
     var sw = switchOnly(b.enabled,function(v){ save(v); },"Включить "+b.names[0]); sw.classList.add("cmd-toggle");
     var controls = el("div",{"class":"builtin-controls"},[
       level,
@@ -1625,7 +1654,7 @@ function chatBuiltinCard(){
     ]);
     card.appendChild(el("div",{"class":"cmdrow builtin-row"},[info,controls]));
   });
-  card.appendChild(el("div",{"class":"desc",text:"Музыкальные команды (!песня, !очередь, !skip, !sr, !voteskip) настраиваются в разделе «Музыка»."}));
+  card.appendChild(el("div",{"class":"ex",text:"Музыкальные команды (!песня, !очередь, !skip, !sr, !voteskip) настраиваются в разделе «Музыка»."}));
   return card;
 }
 // ---------- счётчики ----------
@@ -4428,10 +4457,12 @@ function renderBot(app){
     return el("button",{"class":"tab"+(botSec===s.id?" on":"")+(ok?"":" off"),text:s.title,title:ok?"":s.hint,onclick:function(){botSec=s.id;botSub="";searchQ="";render(meName);}});
   }));
   var subsBar = el("div",{"class":"subseg","aria-label":"Подразделы"});
+  var panel = el("div",{},[subsBar,body]);
   function fill(){
     body.textContent = ""; subsBar.textContent = "";
     var q = searchQ.trim().toLowerCase();
     var sec = BOT_SECTIONS.find(function(s){return s.id===botSec;}) || BOT_SECTIONS[0];
+    panel.classList.toggle("commands-panel",!q && sec.id==="own");
     if(!q){
       if(!sec.ready()){ subsBar.style.display = "none"; body.appendChild(hintCard(sec.hint)); return; }
       var curSub = sec.subs.find(function(x){return x.id===botSub;}) || sec.subs[0];
@@ -4453,10 +4484,9 @@ function renderBot(app){
     });
     if(!found) body.appendChild(el("div",{"class":"desc",text:"Ничего не найдено."}));
   }
-  app.appendChild(searchBox(searchQ,"Поиск по настройкам бота…",function(v){searchQ=v;fill();}));
+  app.appendChild(searchBox(searchQ,"Поиск по настройкам бота…",function(v){searchQ=v;fill();compactUi();}));
   app.appendChild(secs);
-  app.appendChild(subsBar);
-  app.appendChild(body);
+  app.appendChild(panel);
   fill();
 }
 
@@ -4967,14 +4997,18 @@ function sessionsCard(){
 // ---------- всплывающие подсказки «?» ----------
 // Пояснения в коде создаются как .ex; здесь они превращаются в значок «?» рядом с заголовком.
 var tipFor = null;
-function hideTip(){ var t=$("tip"); if(t) t.style.display="none"; tipFor=null; }
+var tipPinned = false;
+function hideTip(){ var t=$("tip"); if(t) t.style.display="none"; tipFor=null; tipPinned=false; }
 function showTip(h){
   var t=$("tip"); t.textContent=h.getAttribute("data-tip"); t.style.display="block";
   var w=Math.min(300,window.innerWidth-24); t.style.width=w+"px";
   var r=h.getBoundingClientRect();
   // правый край окошка стоит ровно под знаком «?», всё остальное уходит влево; если слева не хватает места, окошко упирается в край экрана
   var left=Math.max(window.scrollX+12,Math.min(r.right+window.scrollX-w,window.scrollX+window.innerWidth-w-12));
-  t.style.left=left+"px"; t.style.top=(r.bottom+window.scrollY+8)+"px"; tipFor=h;
+  var top = r.bottom + 8;
+  if(top+t.offsetHeight>window.innerHeight-12 && r.top-t.offsetHeight-8>=12) top = r.top-t.offsetHeight-8;
+  top = Math.max(12,Math.min(top,window.innerHeight-t.offsetHeight-12));
+  t.style.left=left+"px"; t.style.top=(top+window.scrollY)+"px"; t.scrollTop=0; tipFor=h;
 }
 function helpIcon(text){
   return el("span",{"class":"help",tabindex:"0",role:"button","aria-label":"Подсказка","data-tip":text,text:"?"});
@@ -5005,8 +5039,6 @@ function applyHelp(){
   if(!list.length) return;
   var groups = [];
   Array.prototype.forEach.call(list,function(x){
-    var sectionCard = x.closest && x.closest(".card");
-    if(sectionCard && sectionCard.querySelector(".builtin-row")) return;
     var host = x.previousElementSibling;
     while(host && !host.classList.contains("name") && !host.classList.contains("cat")) host = host.previousElementSibling;
     if(!host && x.parentNode) host = x.parentNode.querySelector(".name");
@@ -5022,13 +5054,19 @@ function applyHelp(){
   var hoverable = window.matchMedia && matchMedia("(hover:hover)").matches;
   document.addEventListener("click",function(e){
     var h = e.target.closest && e.target.closest(".help");
-    if(!h){ hideTip(); return; }
-    if(tipFor===h) hideTip(); else showTip(h);
+    if(!h){ if(!e.target.closest || !e.target.closest("#tip")) hideTip(); return; }
+    if(tipFor===h && tipPinned){ hideTip(); return; }
+    showTip(h); tipPinned = true;
   });
-  document.addEventListener("keydown",function(e){ if(e.key==="Escape") hideTip(); });
+  document.addEventListener("keydown",function(e){
+    if(e.key==="Escape"){ hideTip(); return; }
+    if((e.key==="Enter" || e.key===" ") && e.target.matches && e.target.matches('.help[role="button"]')){
+      e.preventDefault(); e.target.click();
+    }
+  });
   if(hoverable){
-    document.addEventListener("mouseover",function(e){ var h=e.target.closest&&e.target.closest(".help"); if(h&&tipFor!==h) showTip(h); });
-    document.addEventListener("mouseout",function(e){ var h=e.target.closest&&e.target.closest(".help"); if(h&&!(e.relatedTarget&&h.contains(e.relatedTarget))) hideTip(); });
+    document.addEventListener("mouseover",function(e){ var h=e.target.closest&&e.target.closest(".help"); if(h&&!tipPinned&&tipFor!==h) showTip(h); });
+    document.addEventListener("mouseout",function(e){ var h=e.target.closest&&e.target.closest(".help"); if(h&&!tipPinned&&!(e.relatedTarget&&h.contains(e.relatedTarget))) hideTip(); });
   }
   new MutationObserver(function(){ applyHelp(); tidyHelp(); mergeHelp(); }).observe(document.body,{childList:true,subtree:true});
 })();
@@ -5447,6 +5485,7 @@ function compactUi(){
   var app = $("app"); if(!app) return;
   compactForms(app);
   enhancePickers(app);
+  fitCommandSummaries();
   if(!app.querySelector(".legal") && !app.querySelector(".chatfull")) app.appendChild(el("div",{"class":"legal"},[el("a",{href:"/privacy",target:"_blank",rel:"noopener",text:"Конфиденциальность"}),el("a",{href:"/terms",target:"_blank",rel:"noopener",text:"Условия использования"}),el("a",{href:"#",text:"Что нового",onclick:function(e){ e.preventDefault(); wnShow(false); }})]));
   // активная вкладка в полосах с прокруткой всегда по центру (иначе на телефоне уезжает за край)
   [].slice.call(app.querySelectorAll(".tabs.scroll, .subseg")).forEach(function(bar){
