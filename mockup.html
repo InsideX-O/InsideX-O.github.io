@@ -767,20 +767,19 @@ select{color-scheme:dark}html[data-mode=light] select{color-scheme:light}
 .chat-command-controls>.fld{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,144px);align-items:center;gap:8px;margin:0}
 .chat-command-controls>.fld>span:first-child{min-width:0;color:var(--muted);font-size:13px;line-height:1.25}
 .chat-command-controls>.fld>:is(select,.ssel,.nstep){width:100%;min-width:0;max-width:none;margin:0}
-.builtin-row .builtin-controls{display:grid;grid-template-columns:132px 142px 38px;align-items:center;justify-content:end;gap:6px;min-width:0}
-.builtin-controls>:is(select,.ssel){width:100%;min-width:0;max-width:none;margin:0;padding-inline:8px;font-size:13px}
-.builtin-controls>.cdw{min-width:0}
-.builtin-controls>.cdw>.uiic{flex:none}
-.builtin-controls>.cdw>.nstep{flex:1}
-.builtin-row{grid-template-columns:minmax(0,1fr) auto}
-.builtin-controls>.sw{justify-self:end}
+.cmdrow.builtin-row{--step-width:118px;--toggle-width:38px;--control-gap:8px;grid-template-columns:minmax(0,1fr) 132px auto var(--toggle-width);column-gap:var(--control-gap)}
+.builtin-row>.cdw{margin:0;min-width:0}
+.builtin-row>.cdw>.uiic{flex:none}
+.builtin-row>.sw{width:var(--toggle-width);min-width:0;margin:0;justify-self:end}
+.builtin-row>.grow{min-width:0}
+.builtin-row>:is(select,.ssel){width:100%;min-width:0;max-width:none;margin:0;padding-inline:8px;font-size:13px}
 .cmd-toggle .swt{width:38px;height:22px}
 .cmd-toggle .swt:before{width:16px;height:16px}
 .cmd-toggle input:checked+.swt:before{transform:translateX(16px)}
 .builtin-row>.builtin-apply{grid-column:1/-1;justify-self:end;margin:0}
-:is(.chat-command-controls,.builtin-controls) .nstep{display:grid;grid-template-columns:30px minmax(0,1fr) 30px;gap:4px;min-width:0;align-items:center}
-:is(.chat-command-controls,.builtin-controls) .nstep>button.icon.small{width:100%;min-width:0;height:36px;min-height:36px;margin:0;padding:0}
-:is(.chat-command-controls,.builtin-controls) .nstep>input[type=number]{width:100%!important;min-width:0;height:36px;padding:0 2px;text-align:center;appearance:textfield;font:inherit;font-variant-numeric:tabular-nums;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text)}
+:is(.chat-command-controls,.builtin-row) .nstep{display:grid;grid-template-columns:30px minmax(0,1fr) 30px;gap:4px;min-width:0;align-items:center}
+:is(.chat-command-controls,.builtin-row) .nstep>button.icon.small{width:100%;min-width:0;height:36px;min-height:36px;margin:0;padding:0}
+:is(.chat-command-controls,.builtin-row) .nstep>input[type=number]{width:100%!important;min-width:0;height:36px;padding:0 2px;text-align:center;appearance:textfield;font:inherit;font-variant-numeric:tabular-nums;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text)}
 .nstep>input[type=number]::-webkit-inner-spin-button,.nstep>input[type=number]::-webkit-outer-spin-button{appearance:none;margin:0}
 .counter-row{display:grid;gap:8px;padding:10px 0;border-top:1px solid var(--line);min-width:0}
 .counter-head,.counter-foot{display:grid;align-items:center;gap:6px;min-width:0}
@@ -795,9 +794,12 @@ select{color-scheme:dark}html[data-mode=light] select{color-scheme:light}
 .counter-actions>button.small{width:100%;height:36px;min-width:0;min-height:36px;margin:0;padding:0}
 .counter-actions>button.counter-set{padding-inline:8px;white-space:nowrap}
 @media(max-width:699px){
-  .builtin-row .builtin-controls{grid-column:1/-1;grid-template-columns:122px 38px;gap:6px}
-  .builtin-controls>:is(select,.ssel){grid-column:1/-1;width:132px;justify-self:end}
-  .builtin-controls>.cdw>.uiic{display:none}
+  .cmdrow.builtin-row{grid-template-columns:minmax(0,1fr) var(--step-width) var(--toggle-width)}
+  .builtin-row>.grow{grid-area:1/1}
+  .builtin-row>:is(select,.ssel){grid-area:1/2/2/4}
+  .builtin-row>.cdw{grid-area:2/2}
+  .builtin-row>.sw{grid-area:2/3}
+  .builtin-row>.cdw>.uiic{display:none!important}
 }
 @media(max-width:380px){
   .chat-command-controls>.fld{grid-template-columns:minmax(0,1fr) minmax(0,128px)}
@@ -811,7 +813,10 @@ select{color-scheme:dark}html[data-mode=light] select{color-scheme:light}
 .cmdrow .command-summary{max-height:2.9em;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45}
 .cmdrow .command-summary[hidden],.command-label>.help[hidden]{display:none}
 #tip{max-height:min(60vh,320px);overflow:auto;overscroll-behavior:contain}
-.builtin-controls .nstep{grid-template-columns:28px 54px 28px}
+.builtin-row .nstep{grid-template-columns:28px 54px 28px;width:var(--step-width)}
+.command-meta{display:flex;align-items:center;gap:6px}
+.command-meta>.help{flex:none;margin:0}
+.command-meta>.help[hidden]{display:none}
 .setting-line{display:grid;grid-template-columns:minmax(0,1fr) min(60%,220px);align-items:center;gap:8px;margin:8px 0}
 .setting-caption{min-width:0;overflow-wrap:anywhere}
 .setting-line>:is(.ssel,select,input){width:100%;min-width:0;max-width:none;min-height:40px;margin:0;padding-inline:8px}
@@ -1588,16 +1593,17 @@ function chatEditor(){
       el("button",{"class":"ghost",text:"Отмена",onclick:function(){ chatEdit=null; chatForm=null; chatPrev=""; render(meName); }})])
   ]);
 }
-function commandInfo(names,description,meta){
+function commandInfo(names,description,meta,helpByUsage){
   var label = el("div",{"class":"command-label"},[el("code",{text:names})]);
   var info = el("div",{"class":"grow"},[label]);
+  var usage = meta ? el("div",{"class":"psub command-meta",text:meta}) : null;
   if(description){
     var hint = helpIcon(description);
     hint.hidden = true;
-    label.appendChild(hint);
+    (helpByUsage && usage ? usage : label).appendChild(hint);
     info.appendChild(el("div",{"class":"psub command-summary",text:description}));
   }
-  if(meta) info.appendChild(el("div",{"class":"psub",text:meta}));
+  if(usage) info.appendChild(usage);
   return info;
 }
 function fitCommandSummaries(){
@@ -1606,7 +1612,7 @@ function fitCommandSummaries(){
   var overflow = summaries.map(function(summary){ return summary.scrollHeight > summary.clientHeight; });
   summaries.forEach(function(summary,index){
     summary.hidden = overflow[index];
-    var hint = summary.previousElementSibling.querySelector(".help");
+    var hint = summary.parentElement.querySelector(".help");
     hint.hidden = !overflow[index];
     if(hint.hidden && tipFor===hint) hideTip();
   });
@@ -1653,14 +1659,10 @@ function chatBuiltinCard(){
     level.addEventListener("change",function(){ save(b.enabled); });
     cd.addEventListener("change",function(){ save(b.enabled); });
     var info = commandInfo(b.names.map(function(n){return botPx+n;}).join("  "),
-      b.description ? "Что делает: "+b.description : "", "Использовано: "+(b.uses||0));
+      b.description ? "Что делает: "+b.description : "", "Использовано: "+(b.uses||0),true);
     var sw = switchOnly(b.enabled,function(v){ save(v); },"Включить "+b.names[0]); sw.classList.add("cmd-toggle");
-    var controls = el("div",{"class":"builtin-controls"},[
-      level,
-      el("span",{"class":"cdw",title:"Пауза между вызовами"},[uiIcon("clock",15),commandNumber(cd,"Пауза в секундах")]),
-      sw
-    ]);
-    card.appendChild(el("div",{"class":"cmdrow builtin-row"},[info,controls]));
+    var pause = el("span",{"class":"cdw",title:"Пауза между вызовами, сек"},[uiIcon("clock",15),commandNumber(cd,"Пауза в секундах")]);
+    card.appendChild(el("div",{"class":"cmdrow builtin-row"},[info,level,pause,sw]));
   });
   card.appendChild(el("div",{"class":"ex",text:"Музыкальные команды (!песня, !очередь, !skip, !sr, !voteskip) настраиваются в разделе «Музыка»."}));
   return card;
