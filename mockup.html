@@ -1631,10 +1631,6 @@ function chatOwnCard(){
     var info = commandInfo(botPx+c.name,description,meta);
     var acts = el("div",{"class":"cmdacts"},[
       el("button",{"class":"ghost small",text:"Изменить",onclick:function(){ chatEdit=c.id; chatForm=chatFormFor(c); chatPrev=""; render(meName); }}),
-      el("button",{"class":"ghost small",text:"В таймер",onclick:async function(){
-        if(typeof window.__standUp!=="function" && !await uiConfirm("Перенести команду !"+c.name+" в таймеры? Команда будет удалена, таймер создастся выключенным: настройте интервал и включите его.")) return;
-        show(""); try{ var d = await api("/api/chat/commands/to-timer",{id:c.id}); if(!d.ok){ show(d.error||"Ошибка","err"); return; } tmState=null; await loadChat(); render(meName); show("Перенесено в таймеры"+(d.warn?". "+d.warn:""),d.warn?"err":"good"); }catch(e){ show(e.message,"err"); }
-      }}),
       el("button",{"class":"ghost small",text:"Удалить",onclick:async function(){ if(await uiConfirm("Удалить команду !"+c.name+"?")) chatCall("/api/chat/commands/delete",{id:c.id},"Команда удалена"); }})]);
     var sw = switchOnly(c.enabled,function(v){ chatCall("/api/chat/commands/toggle",{id:c.id,enabled:v}); },"Включить команду "+botPx+c.name);
     card.appendChild(el("div",{"class":"cmdrow"},[info,sw,acts]));
@@ -5497,7 +5493,7 @@ function compactForms(app){
     sp.textContent = m[1]; sp.appendChild(document.createTextNode(" ")); sp.appendChild(helpIcon(m[2].charAt(0).toUpperCase()+m[2].slice(1)));
   });
 }
-var BTN_ICONS = {"Изменить":"edit","Редактировать":"edit","Удалить":"trash","Копировать":"copy","Обновить":"refresh","В таймер":"timers","Предпросмотр":"eye","Предпросмотр ответа":"eye","Сбросить":"reset","Переименовать":"edit","Убрать":"close","Отключить":"logout","Отвязать":"logout","Скрыть":"eye","Восстановить":"reset",};
+var BTN_ICONS = {"Изменить":"edit","Редактировать":"edit","Удалить":"trash","Копировать":"copy","Обновить":"refresh","Предпросмотр":"eye","Предпросмотр ответа":"eye","Сбросить":"reset","Переименовать":"edit","Убрать":"close","Отключить":"logout","Отвязать":"logout","Скрыть":"eye","Восстановить":"reset",};
 function compactUi(){
   var app = $("app"); if(!app) return;
   compactForms(app);
