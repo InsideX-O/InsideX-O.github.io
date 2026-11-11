@@ -767,7 +767,7 @@ select{color-scheme:dark}html[data-mode=light] select{color-scheme:light}
 .chat-command-controls>.fld{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,144px);align-items:center;gap:8px;margin:0}
 .chat-command-controls>.fld>span:first-child{min-width:0;color:var(--muted);font-size:13px;line-height:1.25}
 .chat-command-controls>.fld>:is(select,.ssel,.nstep){width:100%;min-width:0;max-width:none;margin:0}
-.builtin-row .builtin-controls{display:grid;grid-template-columns:132px 122px 38px;align-items:center;justify-content:end;gap:6px;min-width:0}
+.builtin-row .builtin-controls{display:grid;grid-template-columns:132px 142px 38px;align-items:center;justify-content:end;gap:6px;min-width:0}
 .builtin-controls>:is(select,.ssel){width:100%;min-width:0;max-width:none;margin:0;padding-inline:8px;font-size:13px}
 .builtin-controls>.cdw{min-width:0}
 .builtin-controls>.cdw>.uiic{flex:none}
@@ -795,14 +795,12 @@ select{color-scheme:dark}html[data-mode=light] select{color-scheme:light}
 .counter-actions>button.small{width:100%;height:36px;min-width:0;min-height:36px;margin:0;padding:0}
 .counter-actions>button.counter-set{padding-inline:8px;white-space:nowrap}
 @media(max-width:699px){
-  .builtin-row .builtin-controls{grid-column:1/-1;grid-template-columns:minmax(0,132px) 102px 38px;gap:4px}
+  .builtin-row .builtin-controls{grid-column:1/-1;grid-template-columns:122px 38px;gap:6px}
+  .builtin-controls>:is(select,.ssel){grid-column:1/-1;width:132px;justify-self:end}
   .builtin-controls>.cdw>.uiic{display:none}
 }
 @media(max-width:380px){
   .chat-command-controls>.fld{grid-template-columns:minmax(0,1fr) minmax(0,128px)}
-  .builtin-row .builtin-controls{grid-template-columns:minmax(0,126px) 94px 38px}
-  .builtin-controls>.ssel{gap:3px;padding-inline:5px;font-size:12px}
-  .builtin-controls .nstep{grid-template-columns:27px minmax(0,1fr) 27px}
   .counter-head{grid-template-columns:minmax(0,1fr) 11.5em auto}
   .counter-actions{grid-template-columns:auto repeat(2,32px)}
 }
@@ -813,6 +811,16 @@ select{color-scheme:dark}html[data-mode=light] select{color-scheme:light}
 .cmdrow .command-summary{max-height:2.9em;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45}
 .cmdrow .command-summary[hidden],.command-label>.help[hidden]{display:none}
 #tip{max-height:min(60vh,320px);overflow:auto;overscroll-behavior:contain}
+.builtin-controls .nstep{grid-template-columns:28px 54px 28px}
+.setting-line{display:grid;grid-template-columns:minmax(0,1fr) min(60%,220px);align-items:center;gap:8px;margin:8px 0}
+.setting-caption{min-width:0;overflow-wrap:anywhere}
+.setting-line>:is(.ssel,select,input){width:100%;min-width:0;max-width:none;min-height:40px;margin:0;padding-inline:8px}
+.setting-line>:is(input,select){border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text);font:inherit}
+.setting-line>input[type=number]{text-align:right;font-variant-numeric:tabular-nums}
+.steprow{display:block}
+.step-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px}
+.step-heading>.stx{margin:0}
+.steprow .setting-line>input[type=number]{width:100%}
 </style>
 </head>
 <body>
@@ -1720,6 +1728,12 @@ function countersCard(){
 var mdState = null, mdLoading = false, mdForm = null, mdTest = "";
 async function loadModeration(){ try{ mdState = await api("/api/moderation"); if(!mdState.ok) mdState = null; else { mdForm = null; wdForm = null; spForm = null; } }catch(e){ mdState = null; } }
 function mdEnsure(){ if(!mdState && !mdLoading){ mdLoading = true; loadModeration().then(function(){ mdLoading=false; render(meName); }); } }
+function settingLine(label,control,help){
+  control.setAttribute("aria-label",label);
+  var caption = el("span",{"class":"setting-caption",text:label});
+  if(help) caption.appendChild(helpIcon(help));
+  return el("div",{"class":"setting-line"},[caption,control]);
+}
 function bannedCard(){
   mdEnsure();
   var card = el("div",{"class":"card"},[el("div",{"class":"name",text:"Запрещённые слова"}),
@@ -1736,13 +1750,13 @@ function bannedCard(){
   var words = el("textarea",{rows:"6",placeholder:"По одному слову или фразе на строку"}); words.value = f.words; words.style.width = "100%";
   words.addEventListener("input",function(){ f.words = words.value; });
   card.appendChild(words);
-  card.appendChild(el("div",{"class":"fld"},[el("span",{text:"Как искать"}),sel("match",[["word","Слово целиком"],["contains","Любая часть слова"]])]));
-  card.appendChild(el("div",{"class":"fld"},[el("span",{text:"Что делать"}),sel("action",[["delete","Удалить сообщение"],["timeout","Удалить и дать тайм-аут"]],true)]));
+  card.appendChild(settingLine("Как искать",sel("match",[["word","Слово целиком"],["contains","Любая часть слова"]])));
+  card.appendChild(settingLine("Что делать",sel("action",[["delete","Удалить сообщение"],["timeout","Удалить и дать тайм-аут"]],true)));
   if(f.action==="timeout"){
     var to = el("input",{type:"number",min:"1",max:"1209600",value:String(f.timeout_s)}); to.addEventListener("input",function(){ f.timeout_s = to.value; });
-    card.appendChild(el("div",{"class":"fld"},[el("span",{text:"Тайм-аут, секунд"}),to]));
+    card.appendChild(settingLine("Тайм-аут, секунд",to));
   }
-  card.appendChild(el("div",{"class":"fld"},[el("span",{text:"Не проверять (модераторы и стример не проверяются всегда)"}),sel("exempt",[["subscriber","VIP и подписчиков канала (фолловеры проверяются)"],["vip","Только VIP"],["moderator","Никого, кроме модераторов и стримера"]])]));
+  card.appendChild(settingLine("Не проверять",sel("exempt",[["subscriber","VIP и подписчики"],["vip","Только VIP"],["moderator","Модераторы и стример"]]),"Модераторы и стример исключены всегда. Фолловеры проходят проверку."));
   card.appendChild(el("div",{"class":"tools"},[switchEl("Писать в чат, что сообщение удалено",f.announce,function(v){ f.announce = v; })]));
   var testBox = el("div",{"class":"note",text:mdTest}); testBox.style.display = mdTest ? "" : "none";
   var testInp = el("input",{type:"text",placeholder:"Проверить фразу по сохранённому списку"});
@@ -1778,19 +1792,21 @@ function warningsCard(){
   var mode = el("select",{},[["chat","Сообщение в чате"],["twitch","Официальное предупреждение Twitch"],["none","Молча (только считать)"]].map(function(o){ var x = el("option",{value:o[0],text:o[1]}); if(o[0]===f.mode) x.selected = true; return x; }));
   mode.addEventListener("change",function(){ f.mode = mode.value; });
   var hrs = el("input",{type:"number",min:"0",max:"720",value:String(f.reset_hours)}); hrs.addEventListener("input",function(){ f.reset_hours = hrs.value; });
-  var fgW = el("div",{"class":"fldgrid"},[el("div",{"class":"fld"},[el("span",{text:"Как предупреждать"}),mode]),el("div",{"class":"fld"},[el("span",{text:"Забывать через, часов"}),hrs])]); card.appendChild(fgW);
+  card.appendChild(settingLine("Как предупреждать",mode));
+  card.appendChild(settingLine("Забывать через, часов",hrs));
 
   card.appendChild(el("h3",{"class":"cat",text:"Ступени наказаний"}));
   f.steps.forEach(function(st,i){
     var n = el("input",{type:"number",min:"1",max:"20",value:String(st.strikes)}); n.addEventListener("input",function(){ st.strikes = n.value; });
     var act = el("select",{},[["timeout","тайм-аут"],["ban","бан"]].map(function(o){ var x = el("option",{value:o[0],text:o[1]}); if(o[0]===st.action) x.selected = true; return x; }));
     act.addEventListener("change",function(){ st.action = act.value; render(meName); });
-    var row = el("div",{"class":"steprow"},[el("span",{"class":"stn",text:String(i+1)}),el("span",{"class":"stt",text:"После"}),n,el("span",{"class":"stt",text:"пред."}),act]);
+    var heading = el("div",{"class":"step-heading"},[el("strong",{text:"Ступень "+(i+1)})]);
+    var row = el("div",{"class":"steprow"},[heading,settingLine("После предупреждений",n),settingLine("Что делать",act)]);
     if(st.action==="timeout"){
       var mi = el("input",{type:"number",min:"1",max:"20160",value:String(st.minutes)}); mi.addEventListener("input",function(){ st.minutes = mi.value; });
-      row.appendChild(mi); row.appendChild(el("span",{"class":"stt",text:"мин"}));
+      row.appendChild(settingLine("Тайм-аут, минут",mi));
     }
-    if(f.steps.length>1) row.appendChild(el("button",{"class":"ghost icon small stx","aria-label":"Убрать ступень "+(i+1),title:"Убрать ступень "+(i+1),onclick:function(){ f.steps.splice(i,1); render(meName); }},[uiIcon("close",14)]));
+    if(f.steps.length>1) heading.appendChild(el("button",{"class":"ghost icon small stx","aria-label":"Убрать ступень "+(i+1),title:"Убрать ступень "+(i+1),onclick:function(){ f.steps.splice(i,1); render(meName); }},[uiIcon("close",14)]));
     card.appendChild(row);
   });
   if(f.steps.length<mdState.limits.steps) card.appendChild(el("div",{"class":"form"},[el("button",{"class":"ghost",text:"Ступень",title:"Добавить ступень",onclick:function(){ f.steps.push({strikes:3,action:"timeout",minutes:60}); render(meName); }})]));
@@ -3910,7 +3926,7 @@ function enhancePickers(app){
     if(sel.dataset.pk || sel.closest(".dlg") || sel.multiple) return; sel.dataset.pk = "1";
     var btn = el("button",{type:"button","class":(sel.className?sel.className+" ":"")+"ssel"});
     var lab = el("span",{"class":"sl"}); btn.appendChild(lab); btn.appendChild(uiIcon("chevron",16));
-    function sync(){ var o = sel.options[sel.selectedIndex]; lab.textContent = o?o.textContent:""; btn.disabled = sel.disabled; }
+    function sync(){ var o = sel.options[sel.selectedIndex]; lab.textContent = o?o.textContent:""; btn.disabled = sel.disabled; if(sel.closest(".setting-line")){ btn.title = lab.textContent; btn.setAttribute("aria-label",sel.getAttribute("aria-label")+": "+lab.textContent); } }
     sync(); sel.addEventListener("change",sync);
     var holder = sel.closest("label") || sel.parentNode, cap = holder && holder.querySelector("span");
     btn.addEventListener("click",function(){
