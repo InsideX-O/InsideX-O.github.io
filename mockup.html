@@ -385,14 +385,11 @@ main{width:min(100%,1280px);max-width:1280px;margin:0 auto;padding:28px clamp(16
 .cmdacts{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
 .cmdacts button{margin-top:0}
 @media (min-width:700px){.cmdrow{grid-template-columns:minmax(0,1fr) auto auto}.cmdacts{grid-column:auto;flex-wrap:nowrap}}
-.builtin-row .builtin-controls{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
-.builtin-controls select{height:34px;min-width:130px;max-width:170px;padding:0 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text);font:inherit;font-size:13px}
 .nstep{display:inline-flex;align-items:center;gap:4px;flex:none}
 .nstep input[type=number]{appearance:textfield;-moz-appearance:textfield;width:62px!important;height:34px!important;padding:4px 6px!important;text-align:center!important;border:1px solid var(--line)!important;border-radius:9px!important;background:var(--bg)!important;color:var(--text)!important;font:inherit!important;font-size:14px!important;box-sizing:border-box}
 .nstep input[type=number]::-webkit-inner-spin-button,.nstep input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .nstep button{width:32px;height:32px;min-width:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;font-size:17px;line-height:1}
 .cmd-toggle .swt{width:38px;height:22px}.cmd-toggle .swt:before{width:16px;height:16px}.cmd-toggle input:checked+.swt:before{transform:translateX(16px)}
-@media(max-width:699px){.builtin-row .builtin-controls{grid-column:1/-1;justify-content:flex-start;padding-top:3px}.builtin-controls select{flex:1 1 120px}}
 .sw-only{width:auto;padding:0}
 .card>.name{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px}
 .card>.name .help{margin-left:auto}
@@ -761,15 +758,53 @@ select{color-scheme:dark}html[data-mode=light] select{color-scheme:light}
 .chat-editor>.chat-name>input{width:100%!important;max-width:none!important;justify-self:stretch!important;margin:0!important}
 .chat-editor>textarea{margin-top:8px!important;min-height:92px}
 .chat-editor>input[type=text]{width:100%;margin:8px 0 0!important}
-.chat-command-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end;width:100%;margin-top:10px}
-.chat-command-controls>.fld{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:5px;min-width:0;margin:0}
-.chat-command-controls>.fld>span{width:100%;min-height:2.6em;display:flex;align-items:flex-end;justify-content:center;text-align:center;font-size:13px;line-height:1.25;color:var(--muted);overflow-wrap:anywhere}
-.chat-command-controls>.fld>select,.chat-command-controls>.fld>.ssel{width:100%!important;max-width:none!important;min-width:0;justify-self:stretch;margin:0!important;box-sizing:border-box}
-.chat-command-controls .nstep{display:flex;width:max-content!important;min-width:0;flex:0 0 auto;align-self:center;gap:5px}
-.chat-command-controls .nstep>input[type=number]{flex:0 0 62px;width:62px!important;min-width:62px}
-.chat-command-controls .nstep>button{flex:0 0 34px;width:34px;min-width:34px}
-@media(max-width:560px){.chat-command-controls{gap:7px}.chat-command-controls>.fld>span{font-size:12px}.chat-command-controls .nstep{gap:3px}.chat-command-controls .nstep>button{flex-basis:28px;width:28px;min-width:28px}.chat-command-controls .nstep>input[type=number]{padding:4px 2px!important}.chat-editor>.chat-name{grid-template-columns:72px minmax(0,1fr)}}
+@media(max-width:560px){.chat-editor>.chat-name{grid-template-columns:72px minmax(0,1fr)}}
 .pflink{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);text-decoration:none;font-size:14px}.pflink:hover{border-color:var(--accent)}
+
+/* Команды: общая правая колонка редактора и фиксированные места для действий. */
+.chat-command-controls{display:grid;gap:8px;width:100%;min-width:0}
+.chat-command-controls>.fld{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,144px);align-items:center;gap:8px;margin:0}
+.chat-command-controls>.fld>span:first-child{min-width:0;color:var(--muted);font-size:13px;line-height:1.25}
+.chat-command-controls>.fld>:is(select,.ssel,.nstep){width:100%;min-width:0;max-width:none;margin:0}
+.builtin-row .builtin-controls{display:grid;grid-template-columns:132px 122px 38px;align-items:center;justify-content:end;gap:6px;min-width:0}
+.builtin-controls>:is(select,.ssel){width:100%;min-width:0;max-width:none;margin:0;padding-inline:8px;font-size:13px}
+.builtin-controls>.cdw{min-width:0}
+.builtin-controls>.cdw>.uiic{flex:none}
+.builtin-controls>.cdw>.nstep{flex:1}
+.builtin-row{grid-template-columns:minmax(0,1fr) auto}
+.builtin-controls>.sw{justify-self:end}
+.cmd-toggle .swt{width:38px;height:22px}
+.cmd-toggle .swt:before{width:16px;height:16px}
+.cmd-toggle input:checked+.swt:before{transform:translateX(16px)}
+.builtin-row>.builtin-apply{grid-column:1/-1;justify-self:end;margin:0}
+:is(.chat-command-controls,.builtin-controls) .nstep{display:grid;grid-template-columns:30px minmax(0,1fr) 30px;gap:4px;min-width:0;align-items:center}
+:is(.chat-command-controls,.builtin-controls) .nstep>button.icon.small{width:100%;min-width:0;height:36px;min-height:36px;margin:0;padding:0}
+:is(.chat-command-controls,.builtin-controls) .nstep>input[type=number]{width:100%!important;min-width:0;height:36px;padding:0 2px;text-align:center;appearance:textfield;font:inherit;font-variant-numeric:tabular-nums;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text)}
+.nstep>input[type=number]::-webkit-inner-spin-button,.nstep>input[type=number]::-webkit-outer-spin-button{appearance:none;margin:0}
+.counter-row{display:grid;gap:8px;padding:10px 0;border-top:1px solid var(--line);min-width:0}
+.counter-head,.counter-foot{display:grid;align-items:center;gap:6px;min-width:0}
+.counter-head{grid-template-columns:minmax(0,1fr) 12em auto;font-size:11px}
+.counter-foot{grid-template-columns:minmax(0,1fr) auto}
+.counter-name,.counter-role,.counter-value{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.counter-name{font-size:14px;font-weight:600}
+.counter-role,.counter-value{margin:0;text-align:center;font-size:inherit}
+.counter-value{width:calc(9ch + 14px);font-variant-numeric:tabular-nums;padding-inline:6px}
+.counter-foot>.desc{margin:0;min-width:0;overflow-wrap:anywhere}
+.counter-actions{display:grid;grid-template-columns:auto repeat(2,36px);gap:6px;align-items:center;justify-content:end}
+.counter-actions>button.small{width:100%;height:36px;min-width:0;min-height:36px;margin:0;padding:0}
+.counter-actions>button.counter-set{padding-inline:8px;white-space:nowrap}
+@media(max-width:699px){
+  .builtin-row .builtin-controls{grid-column:1/-1;grid-template-columns:minmax(0,132px) 102px 38px;gap:4px}
+  .builtin-controls>.cdw>.uiic{display:none}
+}
+@media(max-width:380px){
+  .chat-command-controls>.fld{grid-template-columns:minmax(0,1fr) minmax(0,128px)}
+  .builtin-row .builtin-controls{grid-template-columns:minmax(0,126px) 94px 38px}
+  .builtin-controls>.ssel{gap:3px;padding-inline:5px;font-size:12px}
+  .builtin-controls .nstep{grid-template-columns:27px minmax(0,1fr) 27px}
+  .counter-head{grid-template-columns:minmax(0,1fr) 11.5em auto}
+  .counter-actions{grid-template-columns:auto repeat(2,32px)}
+}
 </style>
 </head>
 <body>
@@ -1632,14 +1667,18 @@ function countersCard(){
   card.appendChild(chatReadingNote());
   if(!cnState){ card.appendChild(el("div",{"class":"desc",text:"Загружаю…"})); return card; }
   cnState.counters.forEach(function(c){
-    var title = el("div",{"class":"name"},[el("span",{text:botPx+c.name}),el("span",{"class":"tag on",text:String(c.value)}),el("span",{"class":"tag",text:"менять: "+LEVEL_TITLES[c.level]})]);
-    var info = el("div",{"class":"grow"},[title]);
-    if(c.title) info.appendChild(el("div",{"class":"desc",text:c.title}));
-    var acts = el("div",{"class":"acts"},[
-      el("button",{"class":"ghost small",text:"Задать число",onclick:async function(){ var v = await uiPrompt("Новое значение счётчика !"+c.name,String(c.value)); if(v===null) return; cnCall("/api/counters/value",{id:c.id,value:Number(v)},"Значение изменено"); }}),
+    var command = botPx+c.name, role = "менять: "+LEVEL_TITLES[c.level], value = String(c.value);
+    var head = el("div",{"class":"counter-head"},[
+      el("span",{"class":"counter-name",text:command,title:command}),
+      el("span",{"class":"tag counter-role",text:role,title:role}),
+      el("span",{"class":"tag on counter-value",text:value,title:value})
+    ]);
+    var acts = el("div",{"class":"counter-actions"},[
+      el("button",{"class":"ghost small counter-set",text:"Задать число",onclick:async function(){ var v = await uiPrompt("Новое значение счётчика !"+c.name,String(c.value)); if(v===null) return; cnCall("/api/counters/value",{id:c.id,value:Number(v)},"Значение изменено"); }}),
       el("button",{"class":"ghost small",text:"Изменить",onclick:function(){ cnEdit=c.id; cnForm={id:c.id,name:c.name,title:c.title,level:c.level,value:c.value}; render(meName); }}),
       el("button",{"class":"ghost small",text:"Удалить",onclick:async function(){ if(await uiConfirm("Удалить счётчик !"+c.name+"? Значение пропадёт.")) cnCall("/api/counters/delete",{id:c.id},"Счётчик удалён"); }})]);
-    card.appendChild(el("div",{"class":"cmd"},[info,acts]));
+    var foot = el("div",{"class":"counter-foot"},[el("div",{"class":"desc",text:c.title||""}),acts]);
+    card.appendChild(el("div",{"class":"counter-row"},[head,foot]));
     if(cnEdit===c.id && cnForm) card.appendChild(cnEditor());
   });
   if(!cnState.counters.length) card.appendChild(el("div",{"class":"desc",text:"Счётчиков пока нет."}));
